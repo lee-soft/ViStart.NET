@@ -100,12 +100,8 @@ namespace ViStart.NET
         {
             if (startMenu != null && !startMenu.Visible)
             {
-                // Calculate menu position based on orb location
-                orbLocation.Offset(0, -startMenu.Height); // Position above the orb
-                startMenu.Location = new Point(0, 0);
-                startMenu.Show();
-                startMenu.Activate();
                 startMenu.Show(orbLocation);
+                startMenu.Activate();
             }
         }
     }

@@ -42,6 +42,7 @@ namespace ViStart.NET
             this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
             this.Text = "StartMenuForm";
             this.Load += new System.EventHandler(this.StartMenuForm_Load);
+            this.Shown += new System.EventHandler(this.OnShown);
             this.Paint += new System.Windows.Forms.PaintEventHandler(this.OnPaint);
             this.ResumeLayout(false);
 

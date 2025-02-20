@@ -60,7 +60,7 @@
     <Compile Include="StartMenuForm.Designer.cs">
       <DependentUpon>StartMenuForm.cs</DependentUpon>
     </Compile>
-    <Compile Include="StartMenuManager.cs" />
+    <Compile Include="StartMenuInterfaces.cs" />
     <Compile Include="StartMenuUserPicture.cs">
       <SubType>UserControl</SubType>
     </Compile>
