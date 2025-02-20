@@ -69,9 +69,12 @@ namespace ViStart.NET
 
         public void ShowStartMenu()
         {
-            if (!startMenu.Visible)
+            if (!startMenu.Visible && startMenu != null)
             {
-                startMenu.Show();
+                var orbLocation = startOrb.Location;
+                orbLocation.Offset(startOrb.Width / 2, 0);
+
+                startMenu.Show(orbLocation);
             }
         }
 

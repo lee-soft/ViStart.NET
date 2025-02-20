@@ -111,9 +111,7 @@ namespace ViStart.NET
                 currentState = 2; // Pressed
                 UpdateOrbDisplay();
 
-                var pos = this.Location;
-                pos.Offset(this.Width / 2, 0); // Center horizontally
-                startMenuManager.ShowStartMenu(pos);
+                startMenuManager.ShowStartMenu();
             }
         }
 
