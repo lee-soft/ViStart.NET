@@ -260,6 +260,30 @@ namespace ViStart.NET
             );
         }
 
+        private void DrawArrowButton(Graphics g)
+        {
+            var element = layoutManager.ArrowButton;
+            if (element == null || !element.Visible || arrowButton == null)
+                return;
+
+            // Calculate source rectangle first
+            var sourceRect = GetButtonStateRect(arrowButton, BUTTON_STATE_NORMAL);
+
+            // Create bounds with correct size from the start
+            var bounds = new Rectangle(
+                element.Location.X,
+                element.Location.Y,
+                sourceRect.Width,
+                sourceRect.Height
+            );
+
+            // Get state based on properly sized bounds
+            int state = GetButtonState(lastMousePosition, bounds);
+            sourceRect = GetButtonStateRect(arrowButton, state);
+
+            RenderButton(g, arrowButton, bounds, sourceRect);
+        }
+
         private void DrawShutdownButton(Graphics g)
         {
             var element = layoutManager.ShutdownButton;
@@ -311,6 +335,7 @@ namespace ViStart.NET
                 g.DrawImage(backgroundImage, 0, 0, Width, Height);
 
                 DrawShutdownButton(g);
+                DrawArrowButton(g);
 
                 // Other UI elements...
 
