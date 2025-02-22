@@ -16,6 +16,10 @@ namespace ViStart.NET
 {
     public partial class StartMenuForm : Form
     {
+        private const int BUTTON_STATE_NORMAL = 0;
+        private const int BUTTON_STATE_HOVER = 1;
+        private const int BUTTON_STATE_PRESSED = 2;
+
         private const int WS_EX_LAYERED = 0x80000;
         private const int WS_EX_TOOLWINDOW = 0x80;
 
@@ -230,6 +234,71 @@ namespace ViStart.NET
             this.Activate();
         }
 
+        private int GetButtonState(Point mousePos, Rectangle buttonBounds)
+        {
+            if (!buttonBounds.Contains(mousePos))
+                return BUTTON_STATE_NORMAL;
+
+            return mouseButtonDown ? BUTTON_STATE_PRESSED : BUTTON_STATE_HOVER;
+        }
+
+        private void RenderButton(Graphics g, Image buttonImage, Rectangle bounds, Rectangle sourceRect)
+        {
+            if (buttonImage == null) return;
+            g.DrawImage(buttonImage, bounds, sourceRect, GraphicsUnit.Pixel);
+        }
+
+        private Rectangle GetButtonStateRect(Image buttonImage, int state)
+        {
+            // Button images are vertical strips with three states
+            int stateHeight = buttonImage.Height / 3;
+            return new Rectangle(
+                0,  // x
+                state * stateHeight,  // y
+                buttonImage.Width,    // width - was missing
+                stateHeight          // height - was missing
+            );
+        }
+
+        private void DrawShutdownButton(Graphics g)
+        {
+            var element = layoutManager.ShutdownButton;
+            if (element == null || !element.Visible || shutdownButton == null)
+                return;
+
+            // Calculate source rectangle first
+            var sourceRect = GetButtonStateRect(shutdownButton, BUTTON_STATE_NORMAL);
+
+            // Create bounds with correct size from the start
+            var bounds = new Rectangle(
+                element.Location.X,
+                element.Location.Y,
+                sourceRect.Width,
+                sourceRect.Height
+            );
+
+            // Now get state based on properly sized bounds
+            int state = GetButtonState(lastMousePosition, bounds);
+            sourceRect = GetButtonStateRect(shutdownButton, state);
+
+            RenderButton(g, shutdownButton, bounds, sourceRect);
+
+            // Draw "Shut down" text if configured
+            var textElement = layoutManager.ShutdownText;
+            if (textElement != null && textElement.Visible)
+            {
+                using (var font = new Font("Segoe UI", 9))
+                using (var brush = new SolidBrush(Color.White))
+                {
+                    g.DrawString("Shut down",
+                        font, brush,
+                        textElement.Location.X,
+                        textElement.Location.Y);
+                }
+            }
+        }
+
+
         // Add this method to properly draw the layered window
         private void UpdateLayeredWindow()
         {
@@ -241,15 +310,7 @@ namespace ViStart.NET
                 // Draw background
                 g.DrawImage(backgroundImage, 0, 0, Width, Height);
 
-                // Draw shutdown button if exists
-                if (shutdownButton != null)
-                {
-                    var element = layoutManager.ShutdownButton;
-                    if (element?.Visible == true)
-                    {
-                        g.DrawImage(shutdownButton, element.Location);
-                    }
-                }
+                DrawShutdownButton(g);
 
                 // Other UI elements...
 

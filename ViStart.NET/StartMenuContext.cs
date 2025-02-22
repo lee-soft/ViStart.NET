@@ -29,7 +29,7 @@ namespace ViStart.NET
         private void InitializeComponents()
         {
             // Initialize system integration
-            SystemIntegration.Initialize();
+            // SystemIntegration.Initialize();
 
             // Create start menu and orb
             startMenu = new StartMenuForm(settings, iconManager);
