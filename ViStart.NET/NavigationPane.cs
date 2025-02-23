@@ -61,7 +61,7 @@ namespace ViStart.NET
 
                 // Get font/colors from layout
 
-                    navFont = new Font("Segoe UI", 11);
+                    navFont = new Font("Segoe UI", 10);
                     textColor = Color.White;
 
                 // Get layout settings
@@ -176,6 +176,7 @@ namespace ViStart.NET
 
             int y = Bounds.Y;
             int itemHeight = layoutManager.GroupOptionsSeparator;
+            int rolloverHeight = buttonImage.Height / 2;
 
             foreach (var item in items)
             {
@@ -183,12 +184,12 @@ namespace ViStart.NET
 
                 // Update item bounds
                 item.Bounds = new Rectangle(Bounds.X, y, Bounds.Width, itemHeight);
-
+                Rectangle rolloverPos = new Rectangle(Bounds.X - 3, y, buttonImage.Width, rolloverHeight);
                 // Draw hover state
                 if (item.IsHovered && buttonImage != null)
                 {
                     g.DrawImage(buttonImage,
-                        item.Bounds,
+                        rolloverPos,
                         new Rectangle(0, 0, buttonImage.Width, buttonImage.Height / 2),
                         GraphicsUnit.Pixel);
                 }
@@ -198,9 +199,9 @@ namespace ViStart.NET
                 {
                     var textRect = new Rectangle(
                         item.Bounds.X + layoutManager.XOffset,
-                        y + (itemHeight - (int)navFont.GetHeight()) / 2,
+                        y + (rolloverHeight - (int)navFont.GetHeight()) / 2,
                         item.Bounds.Width - (layoutManager.XOffset * 2),
-                        itemHeight);
+                        rolloverHeight);
 
                     g.DrawString(item.Text, navFont, brush, textRect);
                 }
