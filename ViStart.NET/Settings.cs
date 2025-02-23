@@ -16,7 +16,8 @@ namespace ViStart.NET
         public string AppDataPath => appDataPath;
         public string ResourcePath { get; private set; }
         public string OrbPath { get; private set; }
-        public string NavigationPaneXml { get; set; }
+
+        public readonly string NavigationPaneXml = "navigation_pane";
 
         // UI Settings
         public bool ShowUserPicture { get; set; }

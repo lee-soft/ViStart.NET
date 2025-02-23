@@ -29,9 +29,9 @@ namespace ViStart.NET
         private readonly LayoutManager layoutManager;
 
         // Child controls
-/*        private SearchBox searchBox;
-        private ProgramList programList;
-        private NavigationPane navigationPane;*/
+        /*        private SearchBox searchBox;
+                private ProgramList programList; */
+        private NavigationPane navigationPane;
         private StartMenuUserPicture userPicture;
 
         // UI Resources
@@ -157,10 +157,13 @@ namespace ViStart.NET
             var element = layoutManager.GroupOptions;
             if (element == null) return;
 
-/*            navigationPane = new NavigationPane(settings);
-            navigationPane.Location = element.Location;
-            navigationPane.Size = element.Size;
-            Controls.Add(navigationPane);*/
+            navigationPane = new NavigationPane(settings, layoutManager);
+            navigationPane.Bounds = new Rectangle(
+                element.Location.X,
+                element.Location.Y,
+                element.Size.Width > 0 ? element.Size.Width : 140,  // Use layout width if specified, else default
+                element.Size.Height > 0 ? element.Size.Height : Screen.PrimaryScreen.WorkingArea.Height
+            );
         }
 
         private void CreateUserPicture()
@@ -201,6 +204,7 @@ namespace ViStart.NET
         {
             base.OnMouseLeave(e);
             lastMousePosition = Point.Empty;
+            navigationPane?.HandleMouseLeave();
             Invalidate();
         }
 
@@ -334,6 +338,9 @@ namespace ViStart.NET
                 // Draw background
                 g.DrawImage(backgroundImage, 0, 0, Width, Height);
 
+                // Draw navigation pane
+                navigationPane?.Draw(g);
+
                 DrawShutdownButton(g);
                 DrawArrowButton(g);
 
@@ -375,6 +382,22 @@ namespace ViStart.NET
         private void OnShown(object sender, EventArgs e)
         {
             UpdateLayeredWindow();
+        }
+
+        private void OnMouseMove(object sender, MouseEventArgs e)
+        {
+            lastMousePosition = e.Location;
+
+            // Let navigation pane handle mouse movement
+            navigationPane?.HandleMouseMove(e.Location);
+
+            if (navigationPane?.NeedsRedraw == true)
+            {
+                navigationPane.NeedsRedraw = false;
+                Invalidate();
+            }
+
+            Invalidate();
         }
     }
 }

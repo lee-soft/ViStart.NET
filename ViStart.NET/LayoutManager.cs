@@ -28,6 +28,12 @@ namespace ViStart.NET
         public LayoutElement JumpListViewer => GetElement("jumplist_viewer");
         public LayoutElement ShutdownText => GetElement("shutdown_text");
 
+        public bool ViOrb_FullHeight { get; private set; }
+        public int GroupOptionsSeparator { get; private set; } = 35;
+        public int GroupOptionsLimit { get; private set; } = 20;
+        public bool EnableVisibilityLimit { get; private set; }
+        public bool ForceClearType { get; private set; }
+
         public string FrequentProgramsSeparatorColor { get; private set; }
 
         public LayoutManager()

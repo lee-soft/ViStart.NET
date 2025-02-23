@@ -44,6 +44,7 @@ namespace ViStart.NET
             this.Load += new System.EventHandler(this.StartMenuForm_Load);
             this.Shown += new System.EventHandler(this.OnShown);
             this.Paint += new System.Windows.Forms.PaintEventHandler(this.OnPaint);
+            this.MouseMove += new System.Windows.Forms.MouseEventHandler(this.OnMouseMove);
             this.ResumeLayout(false);
 
         }
