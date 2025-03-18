@@ -33,6 +33,7 @@ namespace ViStart.NET
                 private ProgramList programList; */
         private NavigationPane navigationPane;
         private StartMenuUserPicture userPicture;
+        private ProgramTreeViewControl programTreeView;
 
         // UI Resources
         private Image backgroundImage;
@@ -44,7 +45,7 @@ namespace ViStart.NET
         private Image programsArrow;
 
         // State tracking
-        private bool isProgramListVisible;
+        private bool isProgramListVisible = true;
         private bool isSearchActive;
         private bool isJumpListMode;
         private bool mouseButtonDown;
@@ -52,6 +53,7 @@ namespace ViStart.NET
 
         private PowerMenu powerMenu;
         private Rectangle arrowButtonBounds;
+
 
         public StartMenuForm(Settings settings, IconManager iconManager)
         {
@@ -65,6 +67,77 @@ namespace ViStart.NET
 
             InitializeComponent();
             InitializeStartMenu();
+        }
+
+        private void CreateProgramList()
+        {
+            var element = layoutManager.ProgramMenu;
+            if (element == null) return;
+
+            // Create the program treeview as UserControl
+            programTreeView = new ProgramTreeViewControl(settings, iconManager);
+
+            // Position according to layout
+            programTreeView.Location = element.Location;
+            programTreeView.Size = element.Size;
+            programTreeView.Visible = isProgramListVisible;
+
+            // Hook up events
+            programTreeView.ProgramClicked += ProgramTreeView_ProgramClicked;
+            programTreeView.RequestCloseStartMenu += ProgramTreeView_RequestCloseStartMenu;
+
+        }
+
+        private void ProgramTreeView_ProgramClicked(object arg1, ProgramNode node)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void ProgramTreeView_RequestCloseStartMenu(object sender, EventArgs e)
+        {
+            Hide();
+        }
+
+        private void ToggleProgramsVisibility()
+        {
+            isProgramListVisible = !isProgramListVisible;
+
+            // Update UI elements
+            // In the draw code:
+            // 1. The "All Programs" button should change to "Back" when programs are visible
+            // 2. The ProgramTreeView should be visible when isProgramListVisible is true
+            // 3. The FrequentPrograms panel should be visible when isProgramListVisible is false
+
+            // Update program list view
+            if (programTreeView != null)
+            {
+                programTreeView.Visible = isProgramListVisible;
+
+                if (isProgramListVisible)
+                {
+                    programTreeView.BringToFront();
+                    programTreeView.Focus();
+                }
+                else
+                {
+                    // Reset tree view state when hiding
+                    programTreeView.CollapseAllAndResetSearch();
+                }
+            }
+
+            // Update frequent programs visibility (when implemented)
+            // if (frequentProgramsPanel != null)
+            // {
+            //     frequentProgramsPanel.Visible = !isProgramListVisible;
+            //     
+            //     if (!isProgramListVisible)
+            //     {
+            //         frequentProgramsPanel.BringToFront();
+            //         frequentProgramsPanel.Focus();
+            //     }
+            // }
+
+            Invalidate();
         }
 
         protected override CreateParams CreateParams
@@ -208,17 +281,6 @@ namespace ViStart.NET
             Size = backgroundImage.Size;
         }
 
-        private void CreateProgramList()
-        {
-            var element = layoutManager.ProgramMenu;
-            if (element == null) return;
-
-/*            programList = new ProgramList(settings, iconManager);
-            programList.Location = element.Location;
-            programList.Size = element.Size;
-            Controls.Add(programList);*/
-        }
-
         private void CreateSearchBox()
         {
             var element = layoutManager.SearchBox;
@@ -258,9 +320,28 @@ namespace ViStart.NET
             Controls.Add(userPicture);
         }
 
+        private bool IsPointInControl(Point point, Control control)
+        {
+            return new Rectangle(control.Location, control.Size).Contains(point);
+        }
+
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
+
+            if (programTreeView != null && isProgramListVisible &&
+                IsPointInControl(e.Location, programTreeView))
+            {
+                // Convert coordinates to control's space
+                Point localPoint = new Point(
+                    e.X - programTreeView.Location.X,
+                    e.Y - programTreeView.Location.Y);
+
+                // Forward the event to the control
+                programTreeView.ProcessMouseDown(localPoint, e.Button, e.Clicks);
+                Invalidate(); // Redraw to show changes
+                return;
+            }
 
             if (e.Button == MouseButtons.Left)
             {
@@ -352,6 +433,9 @@ namespace ViStart.NET
             this.Location = new Point(x, y);
             base.Show();
             this.Activate();
+
+            programTreeView.BringToFront();
+            programTreeView.Visible = true;
         }
 
         private int GetButtonState(Point mousePos, Rectangle buttonBounds)
@@ -459,6 +543,12 @@ namespace ViStart.NET
 
                 // Draw navigation pane
                 navigationPane?.Draw(g);
+
+                // Draw the program tree view if it's visible
+                if (programTreeView != null && isProgramListVisible)
+                {
+                    programTreeView.DrawToGraphics(g);
+                }
 
                 DrawShutdownButton(g);
                 DrawArrowButton(g);
