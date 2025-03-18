@@ -39,17 +39,36 @@ namespace ViStart.NET
         public Rectangle Bounds { get; set; }
         public bool NeedsRedraw { get; set; }
 
-/*        public event EventHandler<string> OnRolloverChanged;
-        public event EventHandler<NavigationPaneItem> OnItemClicked;
-*/
-        public NavigationPane(Settings settings, LayoutManager layoutManager)
+        private NavigationContextMenu contextMenu;
+
+        /*        public event EventHandler<string> OnRolloverChanged;
+                public event EventHandler<NavigationPaneItem> OnItemClicked;
+        */
+        public NavigationPane(Settings settings, LayoutManager layoutManager, Form form)
         {
             this.settings = settings;
             this.layoutManager = layoutManager;
             items = new List<NavigationPaneItem>();
 
+            contextMenu = new NavigationContextMenu(settings, form);
+
             LoadResources();
             LoadNavigationItems();
+        }
+
+        public void HandleRightClick(Point clickPos, Form form)
+        {
+            foreach (var item in items)
+            {
+                if (!item.IsVisible) continue;
+
+                if (item.Bounds.Contains(clickPos))
+                {
+                    // Show context menu for this item at the click position
+                    contextMenu.Show(item, clickPos, form);
+                    break;
+                }
+            }
         }
 
         private void LoadResources()

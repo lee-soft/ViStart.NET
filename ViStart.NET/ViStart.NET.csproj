@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="NavigationContextMenu.cs" />
     <Compile Include="NavigationPane.cs" />
     <Compile Include="IconManager.cs" />
     <Compile Include="LayoutElement.cs" />

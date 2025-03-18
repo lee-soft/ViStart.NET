@@ -157,7 +157,7 @@ namespace ViStart.NET
             var element = layoutManager.GroupOptions;
             if (element == null) return;
 
-            navigationPane = new NavigationPane(settings, layoutManager);
+            navigationPane = new NavigationPane(settings, layoutManager, this);
             navigationPane.Bounds = new Rectangle(
                 element.Location.X,
                 element.Location.Y,
@@ -182,7 +182,29 @@ namespace ViStart.NET
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
-            mouseButtonDown = true;
+
+            if (e.Button == MouseButtons.Left)
+            {
+                mouseButtonDown = true;
+
+                // Check if click is within navigation pane
+                if (navigationPane != null &&
+                    navigationPane.Bounds.Contains(e.Location))
+                {
+                    navigationPane.HandleClick(e.Location, this);
+                }
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                // Handle right-click
+                if (navigationPane != null &&
+                    navigationPane.Bounds.Contains(e.Location))
+                {
+                    // Pass the form to get proper coordinate translation
+                    navigationPane.HandleRightClick(e.Location, this);
+                }
+            }
+
             Invalidate();
         }
 
