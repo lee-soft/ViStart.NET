@@ -50,6 +50,9 @@ namespace ViStart.NET
         private bool mouseButtonDown;
         private Point lastMousePosition;
 
+        private PowerMenu powerMenu;
+        private Rectangle arrowButtonBounds;
+
         public StartMenuForm(Settings settings, IconManager iconManager)
         {
             this.settings = settings;
@@ -87,6 +90,82 @@ namespace ViStart.NET
 
             // Load resources
             LoadResources();
+
+            powerMenu = new PowerMenu(settings, this);
+            powerMenu.CommandSelected += PowerMenu_CommandSelected;
+        }
+
+        // Handle power menu commands
+        private void PowerMenu_CommandSelected(object sender, string command)
+        {
+            switch (command)
+            {
+                case "SHUTDOWN":
+                    ExecuteCommand("shutdown", "/s /t 0");
+                    break;
+
+                case "REBOOT":
+                    ExecuteCommand("shutdown", "/r /t 0");
+                    break;
+
+                case "LOGOFF":
+                    ExecuteCommand("shutdown", "/l");
+                    break;
+
+                case "STANDBY":
+                    Application.SetSuspendState(PowerState.Suspend, false, false);
+                    break;
+
+                case "HIBERNATE":
+                    Application.SetSuspendState(PowerState.Hibernate, false, false);
+                    break;
+
+                case "OPTIONS":
+                    // Show options dialog
+                    // optionsDialog.Show();
+                    Hide();
+                    break;
+
+                case "ABOUT":
+                    // Show about dialog
+                    // aboutDialog.Show();
+                    Hide();
+                    break;
+
+                case "EXIT":
+                    Application.Exit();
+                    break;
+
+                default:
+                    if (command.StartsWith("rundll32"))
+                    {
+                        ExecuteCommand(command);
+                    }
+                    break;
+            }
+
+            // Close start menu
+            Hide();
+        }
+
+        private void ExecuteCommand(string command, string args = null)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(args))
+                {
+                    System.Diagnostics.Process.Start(command);
+                }
+                else
+                {
+                    System.Diagnostics.Process.Start(command, args);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error executing command: {ex.Message}", "Error",
+                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void LoadLayout()
@@ -212,6 +291,21 @@ namespace ViStart.NET
         {
             base.OnMouseUp(e);
             mouseButtonDown = false;
+
+            if (e.Button == MouseButtons.Left)
+            {
+                // Check if click was on arrow button
+                if (arrowButtonBounds.Contains(e.Location))
+                {
+                    // Show power menu
+                    Point menuPosition = new Point(
+                        arrowButtonBounds.Right,
+                        arrowButtonBounds.Top
+                    );
+                    powerMenu.Show(menuPosition, this);
+                }
+            }
+
             Invalidate();
         }
 
@@ -308,6 +402,9 @@ namespace ViStart.NET
             sourceRect = GetButtonStateRect(arrowButton, state);
 
             RenderButton(g, arrowButton, bounds, sourceRect);
+
+            // Store the button bounds for click detection
+            arrowButtonBounds = bounds;
         }
 
         private void DrawShutdownButton(Graphics g)
