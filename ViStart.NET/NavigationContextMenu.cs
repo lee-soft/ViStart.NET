@@ -12,6 +12,8 @@ namespace ViStart.NET
         private NavigationPaneItem currentItem;
         private readonly Settings settings;
         private readonly Form parentForm;
+        // Fix for first click issue
+        private bool isInitialized = false;
 
         public NavigationContextMenu(Settings settings, Form parentForm)
         {
