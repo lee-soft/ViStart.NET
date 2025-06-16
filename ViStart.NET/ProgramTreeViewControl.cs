@@ -474,7 +474,9 @@ namespace ViStart.NET
                 ProgramNode node = visibleNodes[i];
                 bool isSelected = node == selectedNode;
                 bool isHovered = node == hoveredNode && !isSelected; // Hover only if not selected
-                Rectangle itemRect = new Rectangle(Location.X, Location.Y + yPos, Width - (thumbBounds.IsEmpty ? 0 : scrollBarWidth), itemHeight);
+
+                int availableWidth = Width - (thumbBounds.IsEmpty ? 0 : scrollBarWidth);
+                Rectangle itemRect = new Rectangle(Location.X, Location.Y + yPos, availableWidth, itemHeight);
 
                 // Only draw if the item rectangle is within the visible area
                 if (itemRect.Bottom > Location.Y && itemRect.Top < Location.Y + Height)
@@ -490,25 +492,35 @@ namespace ViStart.NET
                     }
 
                     // Draw icon
+                    int iconX = Location.X + node.Level * indentWidth + 2;
+                    int iconY = Location.Y + yPos + 3;
+
                     if (node.Icon != null)
                     {
-                        g.DrawImage(node.Icon, Location.X + node.Level * indentWidth + 2, Location.Y + yPos + 3, 16, 16);
+                        g.DrawImage(node.Icon, iconX, iconY, 16, 16);
                     }
 
-                    // Draw text - Fixed to center vertically
+                    // Draw text with proper truncation
                     Font fontToUse = node.IsFolder ? folderFont : itemFont;
+                    int textX = iconX + 20; // Icon width (16) + small padding (4)
+                    int textWidth = availableWidth - (textX - Location.X) - 4; // Leave some padding on the right
+
                     Rectangle textRect = new Rectangle(
-                        Location.X + node.Level * indentWidth + 22,
+                        textX,
                         Location.Y + yPos,
-                        itemRect.Width - (node.Level * indentWidth + 22),
+                        Math.Max(0, textWidth), // Ensure width is not negative
                         itemHeight);
 
-                    g.DrawString(
-                        node.Caption,
-                        fontToUse,
-                        isSelected ? selectedTextBrush : textBrush,
-                        textRect,
-                        textFormat);
+                    // Only draw text if we have space for it
+                    if (textRect.Width > 0)
+                    {
+                        g.DrawString(
+                            node.Caption,
+                            fontToUse,
+                            isSelected ? selectedTextBrush : textBrush,
+                            textRect,
+                            textFormat);
+                    }
                 }
 
                 yPos += itemHeight;
