@@ -75,7 +75,7 @@ namespace ViStart.NET
                 ControlStyles.Selectable,
                 true);
 
-            BackColor = Color.Beige;
+            BackColor = Color.Transparent;
             itemFont = new Font("Segoe UI", 9F);
             folderFont = new Font("Segoe UI", 9F, FontStyle.Bold);
             textBrush = new SolidBrush(Color.Black);
@@ -585,35 +585,35 @@ namespace ViStart.NET
                     int expanderX = Location.X + node.Level * indentWidth + 2;
                     int expanderY = Location.Y + yPos + (itemHeight / 2) - 4; // Center vertically
 
-                    if (node.IsFolder && string.IsNullOrEmpty(filter) && node.Children.Count > 0)
-                    {
-                        // Draw triangle indicator
-                        Point[] triangle;
-                        if (node.IsExpanded)
-                        {
-                            // Down-pointing triangle (expanded)
-                            triangle = new Point[]
-                            {
-                                new Point(expanderX, expanderY),
-                                new Point(expanderX + 8, expanderY),
-                                new Point(expanderX + 4, expanderY + 6)
-                            };
-                        }
-                        else
-                        {
-                            // Right-pointing triangle (collapsed)
-                            triangle = new Point[]
-                            {
-                                new Point(expanderX, expanderY),
-                                new Point(expanderX + 6, expanderY + 4),
-                                new Point(expanderX, expanderY + 8)
-                            };
-                        }
-                        g.FillPolygon(textBrush, triangle);
-                    }
+                    //if (node.IsFolder && string.IsNullOrEmpty(filter) && node.Children.Count > 0)
+                    //{
+                    //    // Draw triangle indicator
+                    //    Point[] triangle;
+                    //    if (node.IsExpanded)
+                    //    {
+                    //        // Down-pointing triangle (expanded)
+                    //        triangle = new Point[]
+                    //        {
+                    //            new Point(expanderX, expanderY),
+                    //            new Point(expanderX + 8, expanderY),
+                    //            new Point(expanderX + 4, expanderY + 6)
+                    //        };
+                    //    }
+                    //    else
+                    //    {
+                    //        // Right-pointing triangle (collapsed)
+                    //        triangle = new Point[]
+                    //        {
+                    //            new Point(expanderX, expanderY),
+                    //            new Point(expanderX + 6, expanderY + 4),
+                    //            new Point(expanderX, expanderY + 8)
+                    //        };
+                    //    }
+                    //    g.FillPolygon(textBrush, triangle);
+                    //}
 
                     // Draw icon - adjust position to account for expander
-                    int iconX = expanderX + (node.IsFolder && string.IsNullOrEmpty(filter) && node.Children.Count > 0 ? 12 : 0);
+                    int iconX = expanderX + (node.IsFolder && string.IsNullOrEmpty(filter) && node.Children.Count > 0 ? 0 : 0);
                     int iconY = Location.Y + yPos + 3;
 
                     if (node.Icon != null)
