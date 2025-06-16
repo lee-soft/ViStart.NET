@@ -562,6 +562,13 @@ namespace ViStart.NET
             //DrawToGraphics(e.Graphics);
         }
 
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateScrollBars();
+            Invalidate();
+        }
+
         protected override void OnMouseDown(MouseEventArgs e)
         {
             base.OnMouseDown(e);
