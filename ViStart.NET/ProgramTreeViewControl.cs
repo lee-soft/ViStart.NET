@@ -127,7 +127,8 @@ namespace ViStart.NET
             rootNode = new ProgramNode
             {
                 Caption = "Programs",
-                IsFolder = true
+                IsFolder = true,
+                IsExpanded = true // Root should start expanded
             };
 
             PopulateStartMenuFolders(rootNode);
@@ -136,112 +137,153 @@ namespace ViStart.NET
 
         private void PopulateStartMenuFolders(ProgramNode parentNode)
         {
-            // Get Start Menu paths for current user and all users
-            string currentUserStartMenu = Environment.GetFolderPath(Environment.SpecialFolder.StartMenu);
-            string commonStartMenu = Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu);
+            string currentUserPrograms = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.StartMenu), "Programs");
+            string commonPrograms = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu), "Programs");
 
-            // Load programs from current user's Start Menu
-            if (Directory.Exists(currentUserStartMenu))
+            // Load directly from Programs folders, not the Start Menu root
+            if (Directory.Exists(currentUserPrograms))
             {
-                LoadProgramsFromFolder(parentNode, currentUserStartMenu);
+                LoadProgramsFromFolder(parentNode, currentUserPrograms);
             }
 
-            // Load programs from All Users Start Menu
-            if (Directory.Exists(commonStartMenu))
+            if (Directory.Exists(commonPrograms))
             {
-                LoadProgramsFromFolder(parentNode, commonStartMenu);
+                LoadProgramsFromFolder(parentNode, commonPrograms);
             }
 
-            // Sort children alphabetically
-            parentNode.Children.Sort((a, b) =>
-            {
-                // Folders first, then alphabetical
-                if (a.IsFolder && !b.IsFolder) return -1;
-                if (!a.IsFolder && b.IsFolder) return 1;
-                return string.Compare(a.Caption, b.Caption, StringComparison.OrdinalIgnoreCase);
-            });
+            // Sort and merge duplicates if needed
+            parentNode.Children.Sort((a, b) => string.Compare(a.Caption, b.Caption, StringComparison.OrdinalIgnoreCase));
         }
 
         private void LoadProgramsFromFolder(ProgramNode parentNode, string folderPath)
         {
             try
             {
-                // Skip certain folders
+                // Basic validation
+                if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath) || parentNode == null)
+                    return;
+
+                // Skip certain folders and load their contents directly
                 string folderName = Path.GetFileName(folderPath);
                 if (folderName == "Programs" || folderName == "Start Menu")
                 {
-                    // For top-level Programs folder, load directly to parent
-                    foreach (string dir in Directory.GetDirectories(folderPath))
+                    // For top-level Programs folder, load directly to parent without creating intermediate node
+                    try
                     {
-                        AddFolderNode(parentNode, dir);
+                        foreach (string dir in Directory.GetDirectories(folderPath))
+                        {
+                            AddFolderNode(parentNode, dir);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error reading directories in {folderPath}: {ex.Message}");
                     }
 
-                    foreach (string file in Directory.GetFiles(folderPath, "*.lnk"))
+                    try
                     {
-                        AddFileNode(parentNode, file);
+                        foreach (string file in Directory.GetFiles(folderPath, "*.lnk"))
+                        {
+                            AddFileNode(parentNode, file);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error reading files in {folderPath}: {ex.Message}");
                     }
 
                     return;
                 }
 
-                // Create folder node
+                // Create folder node only for actual program folders
                 var folderNode = new ProgramNode
                 {
                     Caption = folderName,
                     Path = folderPath,
                     IsFolder = true,
-                    Icon = iconManager.GetFolderIcon(folderPath, false)
+                    IsExpanded = false, // Start collapsed by default
+                    Icon = iconManager?.GetFolderIcon(folderPath, false)
                 };
 
-                parentNode.Children.Add(folderNode);
-
                 // Add subfolders
-                foreach (string dir in Directory.GetDirectories(folderPath))
+                try
                 {
-                    AddFolderNode(folderNode, dir);
+                    foreach (string dir in Directory.GetDirectories(folderPath))
+                    {
+                        AddFolderNode(folderNode, dir);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error reading subdirectories in {folderPath}: {ex.Message}");
                 }
 
                 // Add files
-                foreach (string file in Directory.GetFiles(folderPath, "*.lnk"))
+                try
                 {
-                    AddFileNode(folderNode, file);
+                    foreach (string file in Directory.GetFiles(folderPath, "*.lnk"))
+                    {
+                        AddFileNode(folderNode, file);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error reading files in {folderPath}: {ex.Message}");
                 }
 
-                // Don't add empty folders
-                if (folderNode.Children.Count == 0)
+                // Only add non-empty folders
+                if (folderNode.Children.Count > 0)
                 {
-                    parentNode.Children.Remove(folderNode);
+                    parentNode.Children.Add(folderNode);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error loading programs: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error loading programs from folder {folderPath}: {ex.Message}");
             }
         }
 
         private void AddFolderNode(ProgramNode parentNode, string folderPath)
         {
-            // Implementation same as original
             try
             {
+                // Basic validation
+                if (string.IsNullOrEmpty(folderPath) || !Directory.Exists(folderPath))
+                    return;
+
                 // Create folder node and process its contents
                 var folderNode = new ProgramNode
                 {
                     Caption = Path.GetFileName(folderPath),
                     Path = folderPath,
                     IsFolder = true,
-                    Icon = iconManager.GetFolderIcon(folderPath, false)
+                    IsExpanded = false, // Start collapsed by default
+                    Icon = iconManager?.GetFolderIcon(folderPath, false)
                 };
 
                 // Recursively add contents
-                foreach (string dir in Directory.GetDirectories(folderPath))
+                try
                 {
-                    AddFolderNode(folderNode, dir);
+                    foreach (string dir in Directory.GetDirectories(folderPath))
+                    {
+                        AddFolderNode(folderNode, dir);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error reading subdirectories in {folderPath}: {ex.Message}");
                 }
 
-                foreach (string file in Directory.GetFiles(folderPath, "*.lnk"))
+                try
                 {
-                    AddFileNode(folderNode, file);
+                    foreach (string file in Directory.GetFiles(folderPath, "*.lnk"))
+                    {
+                        AddFileNode(folderNode, file);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error reading files in {folderPath}: {ex.Message}");
                 }
 
                 // Only add non-empty folders
@@ -249,42 +291,63 @@ namespace ViStart.NET
                 {
                     parentNode.Children.Add(folderNode);
 
-                    // Sort children
-                    folderNode.Children.Sort((a, b) =>
+                    // Sort children safely
+                    try
                     {
-                        if (a.IsFolder && !b.IsFolder) return -1;
-                        if (!a.IsFolder && b.IsFolder) return 1;
-                        return string.Compare(a.Caption, b.Caption, StringComparison.OrdinalIgnoreCase);
-                    });
+                        folderNode.Children.Sort((a, b) =>
+                        {
+                            if (a?.IsFolder == true && b?.IsFolder == false) return -1;
+                            if (a?.IsFolder == false && b?.IsFolder == true) return 1;
+                            return string.Compare(a?.Caption ?? "", b?.Caption ?? "", StringComparison.OrdinalIgnoreCase);
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error sorting children: {ex.Message}");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error adding folder: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error adding folder {folderPath}: {ex.Message}");
             }
         }
 
         private void AddFileNode(ProgramNode parentNode, string filePath)
         {
-            // Implementation same as original
             try
             {
+                // Basic validation first
+                if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
+                    return;
+
                 string fileName = Path.GetFileNameWithoutExtension(filePath);
+                if (string.IsNullOrEmpty(fileName))
+                    return;
+
+                // Skip certain file types that shouldn't appear as programs
+                string extension = Path.GetExtension(filePath).ToLowerInvariant();
+                if (extension != ".lnk")
+                {
+                    return; // Only process .lnk files
+                }
 
                 var fileNode = new ProgramNode
                 {
                     Caption = fileName,
                     Path = filePath,
                     IsFolder = false,
-                    Icon = iconManager.GetFileIcon(filePath, false),
+                    Icon = GetShortcutIcon(filePath),
                     SearchableText = MakeSearchable(fileName)
                 };
 
                 // Try to get description for better search
                 try
                 {
-                    fileNode.Description = ShellHelper.GetFileDescription(filePath);
-                    fileNode.SearchableText += " " + fileNode.Description;
+                    if (!string.IsNullOrEmpty(fileNode.Description))
+                    {
+                        fileNode.SearchableText += " " + MakeSearchable(fileNode.Description);
+                    }
                 }
                 catch { /* Ignore errors retrieving description */ }
 
@@ -292,7 +355,30 @@ namespace ViStart.NET
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error adding file: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error adding file {filePath}: {ex.Message}");
+            }
+        }
+
+        private Image GetShortcutIcon(string shortcutPath)
+        {
+            try
+            {
+                // First try to get the icon from the shortcut target
+                if (iconManager != null)
+                {
+                    // Try to get the icon from the .lnk file itself
+                    var icon = iconManager.GetFileIcon(shortcutPath, false);
+                    if (icon != null)
+                        return icon;
+                }
+
+                // Fallback to a default program icon
+                return SystemIcons.Application.ToBitmap();
+            }
+            catch
+            {
+                // Ultimate fallback
+                return SystemIcons.Application.ToBitmap();
             }
         }
 
@@ -309,12 +395,12 @@ namespace ViStart.NET
 
             if (string.IsNullOrEmpty(filter))
             {
-                // No filter, show regular hierarchy
+                // No filter, show regular hierarchy with expand/collapse
                 FlattenVisibleNodes(rootNode, 0, false);
             }
             else
             {
-                // Filter nodes by search text
+                // Filter nodes by search text - show all matching items regardless of expand state
                 string searchText = filter.ToUpperInvariant();
                 FlattenVisibleNodes(rootNode, 0, true, searchText);
 
@@ -343,17 +429,17 @@ namespace ViStart.NET
                 selectedNode = null;
             }
         }
+
         private void FlattenVisibleNodes(ProgramNode node, int level, bool filtering, string searchText = null)
         {
-            // Implementation same as original
-            if (node != rootNode || filtering)
+            // Add the node itself (skip root node entirely to avoid duplication)
+            if (node != rootNode)
             {
-                // Add folder node itself (if not root or if filtering)
                 node.Level = level;
 
                 if (filtering)
                 {
-                    // When filtering, only add folders that contain matching items
+                    // When filtering, only add folders that contain matching items or files that match
                     bool folderHasMatchingItems = false;
 
                     if (node.IsFolder)
@@ -386,7 +472,7 @@ namespace ViStart.NET
                 }
                 else
                 {
-                    // Regular mode, add all nodes
+                    // Regular mode, add all nodes except root
                     visibleNodes.Add(node);
                 }
             }
@@ -394,7 +480,11 @@ namespace ViStart.NET
             // Add children recursively
             foreach (var child in node.Children)
             {
-                FlattenVisibleNodes(child, level + 1, filtering, searchText);
+                // In regular mode, only show children if parent is expanded or we're filtering or it's the root
+                if (filtering || node.IsExpanded || node == rootNode)
+                {
+                    FlattenVisibleNodes(child, level + (node == rootNode ? 0 : 1), filtering, searchText);
+                }
             }
         }
 
@@ -491,8 +581,39 @@ namespace ViStart.NET
                         g.FillRectangle(hoverBrush, itemRect);
                     }
 
-                    // Draw icon
-                    int iconX = Location.X + node.Level * indentWidth + 2;
+                    // Draw expand/collapse indicator for folders (when not filtering)
+                    int expanderX = Location.X + node.Level * indentWidth + 2;
+                    int expanderY = Location.Y + yPos + (itemHeight / 2) - 4; // Center vertically
+
+                    if (node.IsFolder && string.IsNullOrEmpty(filter) && node.Children.Count > 0)
+                    {
+                        // Draw triangle indicator
+                        Point[] triangle;
+                        if (node.IsExpanded)
+                        {
+                            // Down-pointing triangle (expanded)
+                            triangle = new Point[]
+                            {
+                                new Point(expanderX, expanderY),
+                                new Point(expanderX + 8, expanderY),
+                                new Point(expanderX + 4, expanderY + 6)
+                            };
+                        }
+                        else
+                        {
+                            // Right-pointing triangle (collapsed)
+                            triangle = new Point[]
+                            {
+                                new Point(expanderX, expanderY),
+                                new Point(expanderX + 6, expanderY + 4),
+                                new Point(expanderX, expanderY + 8)
+                            };
+                        }
+                        g.FillPolygon(textBrush, triangle);
+                    }
+
+                    // Draw icon - adjust position to account for expander
+                    int iconX = expanderX + (node.IsFolder && string.IsNullOrEmpty(filter) && node.Children.Count > 0 ? 12 : 0);
                     int iconY = Location.Y + yPos + 3;
 
                     if (node.Icon != null)
@@ -632,8 +753,15 @@ namespace ViStart.NET
                         var clickedNode = visibleNodes[index];
                         selectedNode = clickedNode;
 
+                        // Handle folder expand/collapse
+                        if (clickedNode.IsFolder && string.IsNullOrEmpty(filter))
+                        {
+                            // Toggle expansion state
+                            clickedNode.IsExpanded = !clickedNode.IsExpanded;
+                            UpdateVisibleNodes();
+                        }
                         // Double click to launch program
-                        if (e.Clicks == 2 && !clickedNode.IsFolder)
+                        else if (e.Clicks == 2 && !clickedNode.IsFolder)
                         {
                             LaunchSelectedProgram();
                         }
@@ -784,8 +912,22 @@ namespace ViStart.NET
         {
             strictSearch = false;
             filter = string.Empty;
+            CollapseAllFolders(rootNode);
             UpdateVisibleNodes();
             Invalidate();
+        }
+
+        private void CollapseAllFolders(ProgramNode node)
+        {
+            if (node.IsFolder && node != rootNode)
+            {
+                node.IsExpanded = false;
+            }
+
+            foreach (var child in node.Children)
+            {
+                CollapseAllFolders(child);
+            }
         }
 
         private void LaunchSelectedProgram(bool asAdmin = false)
