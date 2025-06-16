@@ -449,7 +449,6 @@ namespace ViStart.NET
                 thumbHeight);
         }
 
-        // Key method for drawing the control onto a provided Graphics context
         public void DrawToGraphics(Graphics g)
         {
             if (g == null || !Visible) return;
@@ -457,50 +456,57 @@ namespace ViStart.NET
             // Create a clipping region to ensure we only draw within our bounds
             g.SetClip(new Rectangle(Location, Size));
 
-            // Draw visible items
+            // Calculate how many items can fit in the current height
+            int currentVisibleItemsCount = Height / itemHeight;
+
+            // Draw visible items - fix the end index calculation
             int yPos = 0;
-            int endIndex = Math.Min(firstVisibleIndex + visibleItemsCount + 1, visibleNodes.Count);
+            int endIndex = Math.Min(firstVisibleIndex + currentVisibleItemsCount + 2, visibleNodes.Count); // +2 for partial items
 
             // Draw background
             g.FillRectangle(new SolidBrush(BackColor), Location.X, Location.Y, Width, Height);
 
-            for (int i = firstVisibleIndex; i < endIndex; i++)
+            for (int i = firstVisibleIndex; i < endIndex && yPos < Height; i++) // Added yPos < Height check
             {
                 ProgramNode node = visibleNodes[i];
                 bool isSelected = node == selectedNode;
                 bool isHovered = node == hoveredNode && !isSelected; // Hover only if not selected
                 Rectangle itemRect = new Rectangle(Location.X, Location.Y + yPos, Width - (thumbBounds.IsEmpty ? 0 : scrollBarWidth), itemHeight);
 
-                // Draw selection/hover background
-                if (isSelected)
+                // Only draw if the item rectangle is within the visible area
+                if (itemRect.Bottom > Location.Y && itemRect.Top < Location.Y + Height)
                 {
-                    g.FillRectangle(selectedBrush, itemRect);
-                }
-                else if (isHovered)
-                {
-                    g.FillRectangle(hoverBrush, itemRect);
-                }
+                    // Draw selection/hover background
+                    if (isSelected)
+                    {
+                        g.FillRectangle(selectedBrush, itemRect);
+                    }
+                    else if (isHovered)
+                    {
+                        g.FillRectangle(hoverBrush, itemRect);
+                    }
 
-                // Draw icon
-                if (node.Icon != null)
-                {
-                    g.DrawImage(node.Icon, Location.X + node.Level * indentWidth + 2, Location.Y + yPos + 3, 16, 16);
+                    // Draw icon
+                    if (node.Icon != null)
+                    {
+                        g.DrawImage(node.Icon, Location.X + node.Level * indentWidth + 2, Location.Y + yPos + 3, 16, 16);
+                    }
+
+                    // Draw text - Fixed to center vertically
+                    Font fontToUse = node.IsFolder ? folderFont : itemFont;
+                    Rectangle textRect = new Rectangle(
+                        Location.X + node.Level * indentWidth + 22,
+                        Location.Y + yPos,
+                        itemRect.Width - (node.Level * indentWidth + 22),
+                        itemHeight);
+
+                    g.DrawString(
+                        node.Caption,
+                        fontToUse,
+                        isSelected ? selectedTextBrush : textBrush,
+                        textRect,
+                        textFormat);
                 }
-
-                // Draw text - Fixed to center vertically
-                Font fontToUse = node.IsFolder ? folderFont : itemFont;
-                Rectangle textRect = new Rectangle(
-                    Location.X + node.Level * indentWidth + 22,
-                    Location.Y + yPos,
-                    itemRect.Width - (node.Level * indentWidth + 22),
-                    itemHeight);
-
-                g.DrawString(
-                    node.Caption,
-                    fontToUse,
-                    isSelected ? selectedTextBrush : textBrush,
-                    textRect,
-                    textFormat);
 
                 yPos += itemHeight;
             }
@@ -532,9 +538,10 @@ namespace ViStart.NET
 
                 // Recalculate thumb position to ensure it's properly sized
                 int totalItems = visibleNodes.Count;
-                int viewableItems = Height / itemHeight;
+                int viewableItems = Math.Max(1, Height / itemHeight); // Ensure we don't divide by zero
                 int thumbHeight = Math.Max(20, (int)((float)viewableItems / Math.Max(1, totalItems) * Height));
-                int thumbPosition = (int)((float)firstVisibleIndex / Math.Max(1, totalItems - viewableItems) * (Height - thumbHeight));
+                int thumbPosition = totalItems > viewableItems ?
+                    (int)((float)firstVisibleIndex / Math.Max(1, totalItems - viewableItems) * (Height - thumbHeight)) : 0;
 
                 Rectangle adjustedThumbBounds = new Rectangle(
                     Location.X + Width - scrollBarWidth,
