@@ -21,6 +21,7 @@ namespace ViStart.NET
         private readonly Font itemFont;
         private readonly Font folderFont;
         private readonly SolidBrush textBrush;
+        private readonly SolidBrush hoverBrush;  // Added brush for hover state
         private readonly SolidBrush selectedBrush;
         private readonly SolidBrush selectedTextBrush;
         private readonly SolidBrush separatorBrush;
@@ -28,6 +29,7 @@ namespace ViStart.NET
         private readonly List<ProgramNode> visibleNodes = new List<ProgramNode>();
         private string filter = string.Empty;
         private ProgramNode selectedNode;
+        private ProgramNode hoveredNode;
         private int firstVisibleIndex;
         private int visibleItemsCount;
         private int itemHeight = 22;
@@ -42,6 +44,9 @@ namespace ViStart.NET
         private bool isThumbDragging;
         private int thumbDragStartY;
         private int maxScrollPosition;
+
+        // For text centering
+        private readonly StringFormat textFormat;
 
         public Action<object, ProgramNode> ProgramClicked { get; internal set; }
         public event EventHandler RequestCloseStartMenu;
@@ -70,13 +75,20 @@ namespace ViStart.NET
                 ControlStyles.Selectable,
                 true);
 
-            BackColor = Color.White;
+            BackColor = Color.Beige;
             itemFont = new Font("Segoe UI", 9F);
             folderFont = new Font("Segoe UI", 9F, FontStyle.Bold);
             textBrush = new SolidBrush(Color.Black);
+            hoverBrush = new SolidBrush(Color.FromArgb(224, 238, 251));  // Light blue for hover
             selectedBrush = new SolidBrush(Color.FromArgb(51, 153, 255));
             selectedTextBrush = new SolidBrush(Color.White);
             separatorBrush = new SolidBrush(Color.FromArgb(210, 210, 210));
+
+            // Setup text format for vertical centering
+            textFormat = new StringFormat();
+            textFormat.LineAlignment = StringAlignment.Center;
+            textFormat.Alignment = StringAlignment.Near;
+            textFormat.Trimming= StringTrimming.EllipsisCharacter;
 
             InitializeContextMenu();
             LoadPrograms();
@@ -408,7 +420,7 @@ namespace ViStart.NET
 
         private void UpdateScrollBars()
         {
-            // Calculate scrollbar dimensions
+            // Calculate scrollbar dimensions - Fix: Always use full height and position at right edge
             scrollBarBounds = new Rectangle(
                 Width - scrollBarWidth,
                 0,
@@ -428,7 +440,7 @@ namespace ViStart.NET
 
             // Calculate thumb height proportional to visible content
             int thumbHeight = Math.Max(20, (int)((float)viewableItems / totalItems * Height));
-            int thumbPosition = (int)((float)firstVisibleIndex / (totalItems - viewableItems) * (Height - thumbHeight));
+            int thumbPosition = (int)((float)firstVisibleIndex / Math.Max(1, totalItems - viewableItems) * (Height - thumbHeight));
 
             thumbBounds = new Rectangle(
                 Width - scrollBarWidth,
@@ -445,43 +457,50 @@ namespace ViStart.NET
             // Create a clipping region to ensure we only draw within our bounds
             g.SetClip(new Rectangle(Location, Size));
 
-            // Offset the graphics context to draw at the control's position
-            g.TranslateTransform(Location.X, Location.Y);
-
             // Draw visible items
             int yPos = 0;
             int endIndex = Math.Min(firstVisibleIndex + visibleItemsCount + 1, visibleNodes.Count);
 
             // Draw background
-            g.FillRectangle(new SolidBrush(BackColor), 0, 0, Width, Height);
+            g.FillRectangle(new SolidBrush(BackColor), Location.X, Location.Y, Width, Height);
 
             for (int i = firstVisibleIndex; i < endIndex; i++)
             {
                 ProgramNode node = visibleNodes[i];
                 bool isSelected = node == selectedNode;
-                Rectangle itemRect = new Rectangle(0, yPos, Width - scrollBarWidth, itemHeight);
+                bool isHovered = node == hoveredNode && !isSelected; // Hover only if not selected
+                Rectangle itemRect = new Rectangle(Location.X, Location.Y + yPos, Width - (thumbBounds.IsEmpty ? 0 : scrollBarWidth), itemHeight);
 
-                // Draw selection background
+                // Draw selection/hover background
                 if (isSelected)
                 {
                     g.FillRectangle(selectedBrush, itemRect);
+                }
+                else if (isHovered)
+                {
+                    g.FillRectangle(hoverBrush, itemRect);
                 }
 
                 // Draw icon
                 if (node.Icon != null)
                 {
-                    g.DrawImage(node.Icon, node.Level * indentWidth + 2, yPos + 3, 16, 16);
+                    g.DrawImage(node.Icon, Location.X + node.Level * indentWidth + 2, Location.Y + yPos + 3, 16, 16);
                 }
 
-                // Draw text
+                // Draw text - Fixed to center vertically
                 Font fontToUse = node.IsFolder ? folderFont : itemFont;
+                Rectangle textRect = new Rectangle(
+                    Location.X + node.Level * indentWidth + 22,
+                    Location.Y + yPos,
+                    itemRect.Width - (node.Level * indentWidth + 22),
+                    itemHeight);
 
                 g.DrawString(
                     node.Caption,
                     fontToUse,
                     isSelected ? selectedTextBrush : textBrush,
-                    node.Level * indentWidth + 22,
-                    yPos + (itemHeight) / 2);
+                    textRect,
+                    textFormat);
 
                 yPos += itemHeight;
             }
@@ -496,26 +515,51 @@ namespace ViStart.NET
                     noResultsText,
                     itemFont,
                     Brushes.Gray,
-                    (Width - textSize.Width) / 2,
-                    (Height - textSize.Height) / 2);
+                    Location.X + (Width - textSize.Width) / 2,
+                    Location.Y + (Height - textSize.Height) / 2);
             }
 
-            // Draw scrollbar if needed
-            if (thumbBounds != Rectangle.Empty)
+            // Draw scrollbar if needed - Fixed positioning
+            if (!thumbBounds.IsEmpty)
             {
-                g.FillRectangle(SystemBrushes.Control, scrollBarBounds);
-                g.FillRectangle(SystemBrushes.ControlDark, thumbBounds);
-            }
+                // Adjust scrollbar position to account for control location
+                Rectangle adjustedScrollBarBounds = new Rectangle(
+                    Location.X + Width - scrollBarWidth,
+                    Location.Y,
+                    scrollBarWidth,
+                    Height
+                );
 
-            // Reset transformation
-            g.ResetTransform();
-            g.ResetClip();
+                // Recalculate thumb position to ensure it's properly sized
+                int totalItems = visibleNodes.Count;
+                int viewableItems = Height / itemHeight;
+                int thumbHeight = Math.Max(20, (int)((float)viewableItems / Math.Max(1, totalItems) * Height));
+                int thumbPosition = (int)((float)firstVisibleIndex / Math.Max(1, totalItems - viewableItems) * (Height - thumbHeight));
+
+                Rectangle adjustedThumbBounds = new Rectangle(
+                    Location.X + Width - scrollBarWidth,
+                    Location.Y + thumbPosition,
+                    scrollBarWidth,
+                    thumbHeight
+                );
+
+                // Draw scrollbar background
+                g.FillRectangle(SystemBrushes.Control, adjustedScrollBarBounds);
+
+                // Draw scrollbar thumb
+                g.FillRectangle(SystemBrushes.ControlDark, adjustedThumbBounds);
+
+                // Optional: Draw scrollbar border
+                g.DrawRectangle(SystemPens.ControlDarkDark,
+                    adjustedScrollBarBounds.X, adjustedScrollBarBounds.Y,
+                    adjustedScrollBarBounds.Width - 1, adjustedScrollBarBounds.Height - 1);
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e);
-            DrawToGraphics(e.Graphics);
+            //base.OnPaint(e);
+            //DrawToGraphics(e.Graphics);
         }
 
         protected override void OnMouseDown(MouseEventArgs e)
@@ -524,7 +568,7 @@ namespace ViStart.NET
 
             if (e.Button == MouseButtons.Left)
             {
-                if (scrollBarBounds.Contains(e.Location) && thumbBounds != Rectangle.Empty)
+                if (scrollBarBounds.Contains(e.Location) && !thumbBounds.IsEmpty)
                 {
                     // Clicked on scrollbar
                     isScrolling = true;
@@ -583,6 +627,26 @@ namespace ViStart.NET
             base.OnMouseMove(e);
             lastMousePosition = e.Location;
 
+            // Update hovered node
+            ProgramNode oldHoveredNode = hoveredNode;
+            hoveredNode = null;
+
+            if (!isThumbDragging)
+            {
+                int index = firstVisibleIndex + e.Y / itemHeight;
+                if (index >= 0 && index < visibleNodes.Count)
+                {
+                    hoveredNode = visibleNodes[index];
+                }
+            }
+
+            // Only redraw if hover state changed
+            if (oldHoveredNode != hoveredNode)
+            {
+                Invalidate();
+            }
+
+            // Handle thumb dragging
             if (isThumbDragging)
             {
                 // Update thumb position
@@ -781,6 +845,11 @@ namespace ViStart.NET
         public void ProcessMouseWheel(Point location, int delta)
         {
             OnMouseWheel(new MouseEventArgs(MouseButtons.None, 0, location.X, location.Y, delta));
+        }
+
+        private void ProgramTreeViewControl_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

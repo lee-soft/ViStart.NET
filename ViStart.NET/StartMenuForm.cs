@@ -373,6 +373,19 @@ namespace ViStart.NET
             base.OnMouseUp(e);
             mouseButtonDown = false;
 
+            if (programTreeView != null && isProgramListVisible &&
+                IsPointInControl(e.Location, programTreeView))
+            {
+                // Convert coordinates to control's space
+                Point localPoint = new Point(
+                    e.X - programTreeView.Location.X,
+                    e.Y - programTreeView.Location.Y);
+
+                // Forward the event to the control
+                programTreeView.ProcessMouseUp(localPoint, e.Button);
+            }
+
+
             if (e.Button == MouseButtons.Left)
             {
                 // Check if click was on arrow button
@@ -394,6 +407,7 @@ namespace ViStart.NET
         {
             base.OnMouseMove(e);
             lastMousePosition = e.Location;
+
             Invalidate();
         }
 
@@ -544,16 +558,14 @@ namespace ViStart.NET
                 // Draw navigation pane
                 navigationPane?.Draw(g);
 
+                DrawShutdownButton(g);
+                DrawArrowButton(g);
+
                 // Draw the program tree view if it's visible
                 if (programTreeView != null && isProgramListVisible)
                 {
                     programTreeView.DrawToGraphics(g);
                 }
-
-                DrawShutdownButton(g);
-                DrawArrowButton(g);
-
-                // Other UI elements...
 
                 // Update the layered window
                 IntPtr screenDc = Win32.GetDC(IntPtr.Zero);
@@ -599,6 +611,21 @@ namespace ViStart.NET
 
             // Let navigation pane handle mouse movement
             navigationPane?.HandleMouseMove(e.Location);
+
+            if (programTreeView != null && isProgramListVisible &&
+                IsPointInControl(e.Location, programTreeView))
+            {
+                // Convert coordinates to control's space
+                Point localPoint = new Point(
+                    e.X - programTreeView.Location.X,
+                    e.Y - programTreeView.Location.Y);
+
+                // Forward the event to the control
+                programTreeView.ProcessMouseMove(localPoint);
+                Invalidate();
+                return;
+            }
+
 
             if (navigationPane?.NeedsRedraw == true)
             {

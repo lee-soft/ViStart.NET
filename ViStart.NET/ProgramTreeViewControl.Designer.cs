@@ -36,6 +36,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Name = "ProgramTreeViewControl";
             this.Size = new System.Drawing.Size(309, 404);
+            this.Load += new System.EventHandler(this.ProgramTreeViewControl_Load);
             this.ResumeLayout(false);
 
         }
