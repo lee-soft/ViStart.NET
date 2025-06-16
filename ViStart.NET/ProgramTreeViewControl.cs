@@ -84,11 +84,12 @@ namespace ViStart.NET
             selectedTextBrush = new SolidBrush(Color.White);
             separatorBrush = new SolidBrush(Color.FromArgb(210, 210, 210));
 
-            // Setup text format for vertical centering
+            // Setup text format for vertical centering and proper truncation
             textFormat = new StringFormat();
             textFormat.LineAlignment = StringAlignment.Center;
             textFormat.Alignment = StringAlignment.Near;
-            textFormat.Trimming= StringTrimming.EllipsisCharacter;
+            textFormat.Trimming = StringTrimming.EllipsisCharacter;
+            textFormat.FormatFlags = StringFormatFlags.NoWrap; // Prevent text wrapping
 
             InitializeContextMenu();
             LoadPrograms();
@@ -326,10 +327,13 @@ namespace ViStart.NET
                 }
             }
 
-            // Calculate max scroll position
+            // Calculate max scroll position - ensure we have a valid height
             int totalHeight = visibleNodes.Count * itemHeight;
-            visibleItemsCount = Height / itemHeight;
+            visibleItemsCount = Math.Max(1, Height / Math.Max(1, itemHeight)); // Prevent division by zero
             maxScrollPosition = Math.Max(0, visibleNodes.Count - visibleItemsCount);
+
+            // Ensure firstVisibleIndex is within bounds
+            firstVisibleIndex = Math.Max(0, Math.Min(firstVisibleIndex, maxScrollPosition));
 
             UpdateScrollBars();
 
@@ -339,7 +343,6 @@ namespace ViStart.NET
                 selectedNode = null;
             }
         }
-
         private void FlattenVisibleNodes(ProgramNode node, int level, bool filtering, string searchText = null)
         {
             // Implementation same as original
