@@ -16,8 +16,7 @@ namespace ViStart.NET
         public string AppDataPath => appDataPath;
         public string ResourcePath { get; private set; }
         public string OrbPath { get; private set; }
-
-        public readonly string NavigationPaneXml = "navigation_pane";
+        public string NavigationPaneXml { get; private set; }
 
         // UI Settings
         public bool ShowUserPicture { get; set; }
@@ -96,6 +95,12 @@ namespace ViStart.NET
                     AutoClick = GetXmlBool(root, "auto_click", true);
                     ShowSplashScreen = GetXmlBool(root, "show_splash", true);
                     ShowTrayIcon = GetXmlBool(root, "show_tray_icon", true);
+                }
+
+                var navPaneNode = doc.SelectSingleNode("//navigation_pane");
+                if (navPaneNode != null)
+                {
+                    NavigationPaneXml = navPaneNode.OuterXml;
                 }
             }
             catch (Exception ex)

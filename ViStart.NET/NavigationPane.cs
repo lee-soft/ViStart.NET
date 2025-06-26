@@ -113,11 +113,13 @@ namespace ViStart.NET
                     var doc = new XmlDocument();
                     doc.LoadXml(settings.NavigationPaneXml);
 
-                    foreach (XmlNode node in doc.SelectNodes("//item"))
+                    foreach (var xmlNode in doc.FirstChild.ChildNodes)
                     {
+                        var node = xmlNode as XmlNode;
+
                         var item = new NavigationPaneItem
                         {
-                            Text = node.Attributes["text"]?.Value,
+                            Text = node.Attributes["caption"]?.Value,
                             Command = node.Attributes["command"]?.Value,
                             IconPath = node.Attributes["icon"]?.Value,
                             RolloverPath = node.Attributes["rollover"]?.Value,
