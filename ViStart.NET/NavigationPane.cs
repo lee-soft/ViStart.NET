@@ -102,10 +102,9 @@ namespace ViStart.NET
 
         private void LoadNavigationItems()
         {
-            // First load standard items
-            LoadDefaultItems();
+            items.Clear();
 
-            // Then load custom items from XML
+            // Load items from XML
             if (!string.IsNullOrEmpty(settings.NavigationPaneXml))
             {
                 try
@@ -113,31 +112,38 @@ namespace ViStart.NET
                     var doc = new XmlDocument();
                     doc.LoadXml(settings.NavigationPaneXml);
 
-                    foreach (var xmlNode in doc.FirstChild.ChildNodes)
+                    foreach (XmlNode xmlNode in doc.DocumentElement.ChildNodes)
                     {
-                        var node = xmlNode as XmlNode;
+                        // Skip non-element nodes (text, comments, etc.)
+                        if (xmlNode.NodeType != XmlNodeType.Element)
+                            continue;
 
-                        var item = new NavigationPaneItem
-                        {
-                            Text = node.Attributes["caption"]?.Value,
-                            Command = node.Attributes["command"]?.Value,
-                            IconPath = node.Attributes["icon"]?.Value,
-                            RolloverPath = node.Attributes["rollover"]?.Value,
-                            IsCustom = true,
-                            DisplayMode = node.Attributes["display"]?.Value ?? "link",
-                            IsVisible = bool.Parse(node.Attributes["visible"]?.Value ?? "true")
-                        };
+                        // Skip if not a folder element
+                        if (xmlNode.Name != "folder")
+                            continue;
 
-                        if (!string.IsNullOrEmpty(item.Text))
+                        var item = CreateNavigationItem(xmlNode);
+                        if (item != null && IsWindowsVersionSupported(xmlNode))
                         {
                             items.Add(item);
                         }
                     }
+
+                    // If no items were loaded, fall back to defaults
+                    if (items.Count == 0)
+                    {
+                        LoadDefaultItems();
+                    }
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error loading navigation XML: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Error loading navigation items: {ex.Message}");
+                    LoadDefaultItems();
                 }
+            }
+            else
+            {
+                LoadDefaultItems();
             }
 
             // Apply visibility limit if enabled
@@ -148,6 +154,147 @@ namespace ViStart.NET
                     items[i].IsVisible = false;
                 }
             }
+        }
+
+        private NavigationPaneItem CreateNavigationItem(XmlNode folderNode)
+        {
+            string caption = GetAttribute(folderNode, "caption");
+            string path = GetAttribute(folderNode, "path");
+            string rollover = GetAttribute(folderNode, "rollover");
+            bool displayAsMenu = GetAttributeBool(folderNode, "display_as_menu", false);
+            bool visible = GetAttributeBool(folderNode, "visible", true);
+
+            if (string.IsNullOrEmpty(caption) || string.IsNullOrEmpty(path))
+                return null;
+
+            // Expand environment variables and string resources
+            caption = ExpandVariables(caption);
+            path = ExpandVariables(path);
+
+            // Build rollover path
+            string rolloverPath = null;
+            if (!string.IsNullOrEmpty(rollover))
+            {
+                rolloverPath = Path.Combine(settings.ResourcePath, "rollover", rollover);
+            }
+
+            return new NavigationPaneItem
+            {
+                Text = caption,
+                Command = path,
+                RolloverPath = rolloverPath,
+                IsVisible = visible,
+                DisplayMode = displayAsMenu ? "menu" : "link",
+                IsCustom = false
+            };
+        }
+
+        private bool IsWindowsVersionSupported(XmlNode folderNode)
+        {
+            string minVersion = GetAttribute(folderNode, "minwinversion");
+            string maxVersion = GetAttribute(folderNode, "maxwinversion");
+
+            if (string.IsNullOrEmpty(minVersion) && string.IsNullOrEmpty(maxVersion))
+                return true;
+
+            Version currentVersion = Environment.OSVersion.Version;
+
+            // Convert Windows version numbers (5.1 = XP, 6.0 = Vista, 6.1 = Win7, etc.)
+            if (!string.IsNullOrEmpty(minVersion))
+            {
+                if (Version.TryParse(minVersion, out Version min))
+                {
+                    if (currentVersion < min) return false;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(maxVersion))
+            {
+                if (Version.TryParse(maxVersion, out Version max))
+                {
+                    if (currentVersion > max) return false;
+                }
+            }
+
+            return true;
+        }
+
+        private string ExpandVariables(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return input;
+
+            // Handle environment variables
+            string result = Environment.ExpandEnvironmentVariables(input);
+
+            // Handle CSIDL folder constants
+            result = ExpandCSIDLPaths(result);
+
+            // Handle string resources
+            result = ExpandStringResources(result);
+
+            return result;
+        }
+
+        private string ExpandCSIDLPaths(string input)
+        {
+            var csidlMappings = new Dictionary<string, Environment.SpecialFolder>
+            {
+                { "%CSIDL_PERSONAL%", Environment.SpecialFolder.Personal },
+                { "%CSIDL_MYPICTURES%", Environment.SpecialFolder.MyPictures },
+                { "%CSIDL_MYMUSIC%", Environment.SpecialFolder.MyMusic },
+                { "%CSIDL_MYVIDEO%", Environment.SpecialFolder.MyVideos },
+                { "%CSIDL_DESKTOP%", Environment.SpecialFolder.Desktop },
+                { "%CSIDL_RECENT%", Environment.SpecialFolder.Recent }
+            };
+
+            foreach (var mapping in csidlMappings)
+            {
+                if (input.Contains(mapping.Key))
+                {
+                    string folderPath = Environment.GetFolderPath(mapping.Value);
+                    input = input.Replace(mapping.Key, folderPath);
+                }
+            }
+
+            return input;
+        }
+
+        private string ExpandStringResources(string input)
+        {
+            var stringMappings = new Dictionary<string, string>
+            {
+                { "%strDocuments%", "Documents" },
+                { "%strPictures%", "Pictures" },
+                { "%strMusic%", "Music" },
+                { "%strVideos%", "Videos" },
+                { "%strGames%", "Games" },
+                { "%strComputer%", "Computer" },
+                { "%strControlPanel%", "Control Panel" },
+                { "%strLibraries%", "Libraries" },
+                { "%strNetwork%", "Network" },
+                { "%strRecent%", "Recent Items" }
+            };
+
+            foreach (var mapping in stringMappings)
+            {
+                if (input.Contains(mapping.Key))
+                {
+                    input = input.Replace(mapping.Key, mapping.Value);
+                }
+            }
+
+            return input;
+        }
+
+        private string GetAttribute(XmlNode node, string name, string defaultValue = null)
+        {
+            return node.Attributes?[name]?.Value ?? defaultValue;
+        }
+
+        private bool GetAttributeBool(XmlNode node, string name, bool defaultValue = false)
+        {
+            string value = GetAttribute(node, name);
+            return bool.TryParse(value, out bool result) ? result : defaultValue;
         }
 
         private struct DefaultNavItem
