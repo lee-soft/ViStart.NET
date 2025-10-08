@@ -119,6 +119,18 @@ namespace ViStart.NET
             AutoClick = true;
             ShowSplashScreen = true;
             ShowTrayIcon = true;
+
+            // Set default navigation pane XML
+            NavigationPaneXml = @"<navigation_pane>
+        <folder caption=""Documents"" path=""%CSIDL_PERSONAL%"" rollover=""documents.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Pictures"" path=""%CSIDL_MYPICTURES%"" rollover=""pictures.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Music"" path=""%CSIDL_MYMUSIC%"" rollover=""music.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Videos"" path=""%CSIDL_MYVIDEO%"" rollover=""videos.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Games"" path=""shell:Games"" rollover=""games.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Computer"" path=""shell:MyComputerFolder"" rollover=""computer.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Control Panel"" path=""shell:ControlPanelFolder"" rollover=""control-panel.png"" display_as_menu=""False"" visible=""True"" />
+        <folder caption=""Network"" path=""shell:NetworkPlacesFolder"" rollover=""network.png"" display_as_menu=""False"" visible=""True"" />
+    </navigation_pane>";
         }
 
         private void UpdateResourcePaths()
