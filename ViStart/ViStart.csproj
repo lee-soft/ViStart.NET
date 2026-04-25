@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProductVersion>8.0.30703</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{8B7E5A1A-4E3F-4B2D-9A1C-5C6F7D8E9F0A}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>ViStart</RootNamespace>
+    <AssemblyName>ViStart</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkProfile>
+    </TargetFrameworkProfile>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <PlatformTarget>x86</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationIcon>Resources\ViStart.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Data\ProgramNode.cs" />
+    <Compile Include="Program.cs" />
+    <Compile Include="Core\AppSettings.cs" />
+    <Compile Include="Core\ThemeManager.cs" />
+    <Compile Include="Core\IconCache.cs" />
+    <Compile Include="Core\StartMenuIndexer.cs" />
+    <Compile Include="Data\ProgramItem.cs" />
+    <Compile Include="Data\ProgramDatabase.cs" />
+    <Compile Include="Data\NavigationItem.cs" />
+    <Compile Include="Native\NativeMethods.cs" />
+    <Compile Include="Native\User32.cs" />
+    <Compile Include="Native\Shell32.cs" />
+    <Compile Include="Native\Gdi32.cs" />
+    <Compile Include="Native\KeyboardHook.cs" />
+    <Compile Include="Native\MouseHook.cs" />
+    <Compile Include="UI\AllProgramsButton.cs" />
+    <Compile Include="UI\SearchBoxHost.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\StartButton.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\StartMenu.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ProgramMenuPanel.cs" />
+    <Compile Include="UI\FrequentProgramsPanel.cs" />
+    <Compile Include="UI\SearchBox.cs" />
+    <Compile Include="UI\PowerButton.cs" />
+    <Compile Include="UI\JumpListPanel.cs" />
+    <Compile Include="UI\LayeredWindow.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+      <DesignTime>True</DesignTime>
+    </Compile>
+    <EmbeddedResource Include="UI\SearchBoxHost.resx">
+      <DependentUpon>SearchBoxHost.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\layout.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
