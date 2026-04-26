@@ -344,20 +344,27 @@ namespace ViStart.UI
         private void ApplyAppearanceChanges()
         {
             AppSettings.Save();
+
+            // Tear down the existing menu BEFORE reloading themes. ThemeManager.Reload()
+            // disposes every cached image, and StartMenu's backgroundImage fields hold
+            // direct references to those instances. If we reloaded first, the
+            // startMenu.Hide() call below would internally invoke RenderMenu(), which
+            // calls Graphics.DrawImage() on the now-disposed bitmaps and throws
+            // ArgumentException ("Parameter is not valid").
+            bool wasVisible = false;
+            if (startMenu != null)
+            {
+                wasVisible = startMenu.Visible;
+                if (wasVisible) startMenu.Hide();
+                startMenu.Dispose();
+                startMenu = null;
+            }
+
             ThemeManager.Reload();
             LoadOrb();
 
-            if (startMenu != null)
-            {
-                bool wasVisible = startMenu.Visible;
-                startMenu.Hide();
-                startMenu.Dispose();
-                startMenu = new StartMenu(this);
-                if (wasVisible)
-                {
-                    startMenu.Show();
-                }
-            }
+            startMenu = new StartMenu(this);
+            if (wasVisible) startMenu.Show();
         }
 
         protected override void WndProc(ref Message m)

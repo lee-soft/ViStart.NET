@@ -67,7 +67,7 @@ namespace ViStart.UI
 
         private void TextBox_HandleCreated(object sender, EventArgs e)
         {
-            User32.SendMessage(textBox.Handle, User32.EM_SETCUEBANNER, (IntPtr)1, PlaceholderText);
+            User32.SendMessage(textBox.Handle, User32.EM_SETCUEBANNER, (IntPtr)1, placeholderText);
         }
 
         private void TextBox_TextChanged(object sender, EventArgs e)
