@@ -50,6 +50,10 @@ namespace ViStart.Core
         public static Color FrequentProgramsSeparatorColor { get; private set; }
         public static Color ProgramMenuBackColor { get; private set; }
         public static Color FrequentProgramsBackColor { get; private set; }
+        // Skins ship a separate "Shut down" caption colour for jumplist mode because
+        // the expanded background often has a lighter strip near the power button.
+        // Defaults to black per the VB6 default.
+        public static Color ShutdownTextJumpListColor { get; private set; }
 
         static ThemeManager()
         {
@@ -148,6 +152,14 @@ namespace ViStart.Core
 
             ProgramMenuBackColor = Color.White;
             FrequentProgramsBackColor = Color.White;
+
+            // <shutdown_text jumplistcolour="#000000"/> — used in jumplist (morph) mode
+            // where the expanded background is typically lighter than the regular one.
+            var shutdownText = root.Descendants("shutdown_text").FirstOrDefault();
+            string jumplistColour = shutdownText != null
+                ? (string)shutdownText.Attribute("jumplistcolour")
+                : null;
+            ShutdownTextJumpListColor = ParseColor(jumplistColour, Color.Black);
         }
 
         private static ThemeElement GetElement(string id)
@@ -191,6 +203,7 @@ namespace ViStart.Core
             FrequentProgramsSeparatorColor = Color.White;
             ProgramMenuBackColor = Color.White;
             FrequentProgramsBackColor = Color.White;
+            ShutdownTextJumpListColor = Color.Black;
         }
 
         private static void LoadImages()

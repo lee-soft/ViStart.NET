@@ -51,7 +51,11 @@
     <Compile Include="Program.cs" />
     <Compile Include="Core\AppSettings.cs" />
     <Compile Include="Core\AppsFolderIndexer.cs" />
+    <Compile Include="Core\ExtensionHandlerCache.cs" />
+    <Compile Include="Core\RecentFilesProvider.cs" />
+    <Compile Include="Core\ShortcutResolver.cs" />
     <Compile Include="Core\ThemeManager.cs" />
+    <Compile Include="Core\UserPictureLoader.cs" />
     <Compile Include="Core\IconCache.cs" />
     <Compile Include="Core\StartMenuIndexer.cs" />
     <Compile Include="Data\ProgramItem.cs" />
@@ -75,6 +79,7 @@
     </Compile>
     <Compile Include="UI\ProgramMenuPanel.cs" />
     <Compile Include="UI\FrequentProgramsPanel.cs" />
+    <Compile Include="UI\RecentFilesPanel.cs" />
     <Compile Include="UI\SearchBox.cs" />
     <Compile Include="UI\PowerButton.cs" />
     <Compile Include="UI\JumpListPanel.cs" />

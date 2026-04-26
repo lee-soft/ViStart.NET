@@ -45,6 +45,28 @@ namespace ViStart.Data
             return cachedIcon;
         }
 
+        // Recent files (jumplist) attribution is keyed off the resolved exe — for a
+        // .lnk that's the link target, for an .exe it's itself. Cached because the
+        // resolution touches WScript.Shell COM and we hit this on every render.
+        private string _resolvedExePath;
+        private bool _resolvedExeChecked;
+
+        public string GetResolvedExePath()
+        {
+            if (!_resolvedExeChecked)
+            {
+                _resolvedExePath = Core.ShortcutResolver.ResolveProgramExe(Path);
+                _resolvedExeChecked = true;
+            }
+            return _resolvedExePath;
+        }
+
+        public bool HasJumpList()
+        {
+            string exe = GetResolvedExePath();
+            return !string.IsNullOrEmpty(exe) && Core.RecentFilesProvider.HasRecentFiles(exe);
+        }
+
         public void Launch()
         {
             try

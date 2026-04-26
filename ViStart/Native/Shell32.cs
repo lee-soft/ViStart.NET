@@ -107,6 +107,15 @@ namespace ViStart.Native
             public string szTypeName;
         }
 
+        // shell32 ordinal #261 — undocumented but stable since Vista. Returns the
+        // path to the current user's account-tile image (the photo shown next to
+        // the username in the start menu). Used by VB6 ViStart's MakeUserRollover.
+        // Signature: HRESULT (LPCWSTR username, DWORD flags, LPWSTR buffer, DWORD cch).
+        // Pass empty username + 0x80000000 to mean "current user".
+        [DllImport("shell32.dll", EntryPoint = "#261", CharSet = CharSet.Unicode, PreserveSig = true)]
+        public static extern int GetUserTilePath(string username, uint flags,
+            System.Text.StringBuilder buffer, int cchBuffer);
+
         // Constants
         public const uint SHGFI_ICON = 0x100;
         public const uint SHGFI_LARGEICON = 0x0;

@@ -152,30 +152,7 @@ namespace ViStart.Core
 
         private static string ResolveShortcut(string shortcutPath)
         {
-            try
-            {
-                Type shellType = Type.GetTypeFromProgID("WScript.Shell");
-                object shell = Activator.CreateInstance(shellType);
-
-                object shortcut = shellType.InvokeMember("CreateShortcut",
-                    System.Reflection.BindingFlags.InvokeMethod,
-                    null, shell, new object[] { shortcutPath });
-
-                object targetPath = shortcut.GetType().InvokeMember("TargetPath",
-                    System.Reflection.BindingFlags.GetProperty,
-                    null, shortcut, null);
-
-                string result = targetPath as string;
-
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(shortcut);
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(shell);
-
-                return result;
-            }
-            catch
-            {
-                return null;
-            }
+            return ShortcutResolver.ResolveTarget(shortcutPath);
         }
 
         public static ProgramNode GetRootNode()
