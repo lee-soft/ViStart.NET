@@ -47,6 +47,13 @@ namespace ViStart.Core
 
         public bool UseLargeIcons { get; set; }
 
+        // Orb position — set when the user manually drops the orb (Ctrl+drag).
+        // While OrbPositionSet is false, StartButton.PositionButton() runs the
+        // legacy auto-detect-and-place-over-real-Start logic instead.
+        public int OrbX { get; set; }
+        public int OrbY { get; set; }
+        public bool OrbPositionSet { get; set; }
+
         // Program Database (stored separately)
         public ProgramDatabase Programs { get; set; }
 
@@ -63,6 +70,9 @@ namespace ViStart.Core
             ShowSplashScreen = false;
             UseLargeIcons = false;
             FadeAnimationSpeed = 15;
+            OrbX = 0;
+            OrbY = 0;
+            OrbPositionSet = false;
             Programs = new ProgramDatabase();
         }
 

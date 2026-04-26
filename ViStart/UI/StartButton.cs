@@ -20,6 +20,15 @@ namespace ViStart.UI
         private IntPtr taskbarHandle;
         private IntPtr startButtonHandle;
 
+        // Ctrl+drag positioning state
+        private bool isDragArmed;        // Ctrl was held at MouseDown; tracking for movement
+        private bool isDragging;         // movement passed threshold; orb is following the cursor
+        private Point dragStartScreen;   // screen coords at MouseDown
+        private Point dragStartLocation; // form Location at MouseDown
+        private bool suppressNextClick;  // don't open the menu when MouseUp completes a drag
+        private const int DRAG_THRESHOLD = 4;
+        private ToolTip firstRunTip;     // shown once on first launch to teach Ctrl+drag
+
         public StartButton()
         {
             InitializeComponent();
@@ -49,12 +58,14 @@ namespace ViStart.UI
         private void InitializeComponent()
         {
             TopMost = true;
-            
+
             this.MouseEnter += StartButton_MouseEnter;
             this.MouseLeave += StartButton_MouseLeave;
             this.MouseDown += StartButton_MouseDown;
+            this.MouseMove += StartButton_MouseMove;
             this.MouseUp += StartButton_MouseUp;
             this.Click += StartButton_Click;
+            this.Shown += StartButton_Shown;
         }
 
         private void LoadOrb()
@@ -144,12 +155,30 @@ namespace ViStart.UI
 
         private void PositionButton()
         {
+            // Once the user has manually dropped the orb (Ctrl+drag), respect that
+            // forever. Clamp to the nearest visible monitor's working area in case
+            // they've changed displays since.
+            if (AppSettings.Instance.OrbPositionSet)
+            {
+                Point saved = new Point(AppSettings.Instance.OrbX, AppSettings.Instance.OrbY);
+                Rectangle desired = new Rectangle(saved, this.Size);
+                Screen target = Screen.AllScreens.FirstOrDefault(s => s.Bounds.IntersectsWith(desired))
+                                ?? Screen.PrimaryScreen;
+                Rectangle wa = target.WorkingArea;
+                this.Left = Math.Max(wa.Left, Math.Min(saved.X, wa.Right - this.Width));
+                this.Top  = Math.Max(wa.Top,  Math.Min(saved.Y, wa.Bottom - this.Height));
+                return;
+            }
+
+            // First-launch behaviour: align over the real Windows Start button if
+            // we can find it (works on Win7-style shells; modern Win11 doesn't
+            // expose the Start button as a classic child of Shell_TrayWnd).
             taskbarHandle = User32.FindWindow("Shell_TrayWnd", null);
-            
+
             if (taskbarHandle != IntPtr.Zero)
             {
                 startButtonHandle = User32.FindWindowEx(taskbarHandle, IntPtr.Zero, "Button", "Start");
-                
+
                 if (startButtonHandle != IntPtr.Zero)
                 {
                     User32.RECT rect;
@@ -162,7 +191,7 @@ namespace ViStart.UI
                 }
             }
 
-            // Fallback position (bottom-left corner)
+            // Fallback position (bottom-left corner of primary screen working area)
             this.Left = 0;
             this.Top = Screen.PrimaryScreen.WorkingArea.Bottom - this.Height;
         }
@@ -205,19 +234,70 @@ namespace ViStart.UI
         {
             if (e.Button == MouseButtons.Left)
             {
+                if ((Control.ModifierKeys & Keys.Control) == Keys.Control)
+                {
+                    // Arm a Ctrl+drag. Actual move begins once movement clears
+                    // DRAG_THRESHOLD pixels — small wiggles still count as clicks.
+                    isDragArmed = true;
+                    isDragging = false;
+                    dragStartScreen = MousePosition;
+                    dragStartLocation = this.Location;
+                    this.Capture = true;  // keep getting MouseMove if cursor leaves the orb
+                }
+                HideFirstRunTip();
                 currentSnap = 2;
                 DrawCurrentState();
             }
             else if (e.Button == MouseButtons.Right)
             {
+                HideFirstRunTip();
                 ShowExitMenu(this.PointToScreen(e.Location));
             }
+        }
+
+        private void StartButton_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!isDragArmed) return;
+
+            Point now = MousePosition;
+            int dx = now.X - dragStartScreen.X;
+            int dy = now.Y - dragStartScreen.Y;
+
+            if (!isDragging)
+            {
+                if (Math.Abs(dx) < DRAG_THRESHOLD && Math.Abs(dy) < DRAG_THRESHOLD)
+                    return;
+                isDragging = true;
+            }
+
+            this.Location = new Point(
+                dragStartLocation.X + dx,
+                dragStartLocation.Y + dy);
         }
 
         private void StartButton_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {
+                if (isDragArmed)
+                {
+                    bool didDrag = isDragging;
+                    isDragArmed = false;
+                    isDragging = false;
+                    this.Capture = false;
+
+                    if (didDrag)
+                    {
+                        // Persist the new position and consume the upcoming Click
+                        // event — the user was repositioning, not summoning the menu.
+                        AppSettings.Instance.OrbX = this.Left;
+                        AppSettings.Instance.OrbY = this.Top;
+                        AppSettings.Instance.OrbPositionSet = true;
+                        AppSettings.Save();
+                        suppressNextClick = true;
+                    }
+                }
+
                 currentSnap = MenuOpen ? 2 :
                     (ClientRectangle.Contains(PointToClient(MousePosition)) ? 1 : 0);
                 DrawCurrentState();
@@ -226,7 +306,53 @@ namespace ViStart.UI
 
         private void StartButton_Click(object sender, EventArgs e)
         {
+            if (suppressNextClick)
+            {
+                suppressNextClick = false;
+                return;
+            }
             ToggleStartMenu();
+        }
+
+        private void StartButton_Shown(object sender, EventArgs e)
+        {
+            if (!AppSettings.Instance.OrbPositionSet)
+                ShowFirstRunTip();
+        }
+
+        private void ShowFirstRunTip()
+        {
+            try
+            {
+                firstRunTip = new ToolTip
+                {
+                    IsBalloon = true,
+                    UseFading = true,
+                    UseAnimation = true,
+                    ShowAlways = true,
+                    ToolTipTitle = LanguageManager.T("tooltip.first_run_drag.title", "ViStart"),
+                };
+                string text = LanguageManager.T(
+                    "tooltip.first_run_drag",
+                    "Hold Ctrl and drag to move the orb anywhere on screen.");
+                // Show below the orb for 8 seconds — gives the user time to read
+                // without nagging them forever.
+                firstRunTip.Show(text, this, this.Width / 2, this.Height + 5, 8000);
+            }
+            catch
+            {
+                // Tooltips on layered windows are best-effort; a failure here must
+                // never take down the orb.
+                firstRunTip = null;
+            }
+        }
+
+        private void HideFirstRunTip()
+        {
+            if (firstRunTip == null) return;
+            try { firstRunTip.Hide(this); } catch { }
+            try { firstRunTip.Dispose(); } catch { }
+            firstRunTip = null;
         }
 
         public void ToggleStartMenu()
@@ -287,6 +413,13 @@ namespace ViStart.UI
             }
 
             menu.Items.Add(languageMenu);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(LanguageManager.T("menu.reset_orb_position", "Reset orb position"), null, (s, a) =>
+            {
+                AppSettings.Instance.OrbPositionSet = false;
+                AppSettings.Save();
+                PositionButton();
+            });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(LanguageManager.T("menu.exit", "Exit ViStart"), null, (s, a) => Program.Exit());
             menu.Show(screenPoint);
