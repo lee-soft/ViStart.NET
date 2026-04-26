@@ -58,7 +58,7 @@ namespace ViStart.UI
             using (var brush = new SolidBrush(Color.Black))
             using (var font = new Font("Segoe UI", 9f, FontStyle.Bold))
             {
-                string text = ShowingAllPrograms ? "Back" : "All Programs";
+                string text = ShowingAllPrograms ? LanguageManager.T("back", "Back") : LanguageManager.T("all_programs", "All Programs");
                 var format = new StringFormat { LineAlignment = StringAlignment.Center };
                 g.DrawString(text, font, brush, Bounds, format);
             }

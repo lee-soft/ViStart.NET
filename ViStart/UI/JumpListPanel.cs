@@ -42,15 +42,15 @@ namespace ViStart.UI
             // Recent uses display_as_menu in VB6 — rendered with a ▶ submenu chevron.
             navigationItems = new List<NavigationItem>
             {
-                new NavigationItem("Documents",     "shell:Personal",         null,              "documents.png"),
-                new NavigationItem("Pictures",      "shell:My Pictures",      null,              "pictures.png"),
-                new NavigationItem("Music",         "shell:My Music",         null,              "music.png"),
-                new NavigationItem("Videos",        "shell:My Video",         null,              "videos.png"),
-                new NavigationItem("Recent",        "shell:Recent",           null,              "Recent.png", hasSubmenu: true),
-                new NavigationItem("Computer",      "shell:MyComputerFolder", null,              "computer.png"),
-                new NavigationItem("Connect To",    "ncpa.cpl",               null,              "connect.png"),
-                new NavigationItem("Control Panel", "control.exe",            null,              "control.png"),
-                new NavigationItem("Run...",        "rundll32.exe",           "shell32.dll,#61", "run.png"),
+                new NavigationItem(LanguageManager.T("documents", "Documents"),     "shell:Personal",         null,              "documents.png"),
+                new NavigationItem(LanguageManager.T("pictures", "Pictures"),      "shell:My Pictures",      null,              "pictures.png"),
+                new NavigationItem(LanguageManager.T("music", "Music"),         "shell:My Music",         null,              "music.png"),
+                new NavigationItem(LanguageManager.T("videos", "Videos"),        "shell:My Video",         null,              "videos.png"),
+                new NavigationItem(LanguageManager.T("recent", "Recent"),        "shell:Recent",           null,              "Recent.png", hasSubmenu: true),
+                new NavigationItem(LanguageManager.T("computer", "Computer"),      "shell:MyComputerFolder", null,              "computer.png"),
+                new NavigationItem(LanguageManager.T("connect_to", "Connect To"),    "ncpa.cpl",               null,              "connect.png"),
+                new NavigationItem(LanguageManager.T("control_panel", "Control Panel"), "control.exe",            null,              "control.png"),
+                new NavigationItem(LanguageManager.T("run", "Run..."),        "rundll32.exe",           "shell32.dll,#61", "run.png"),
             };
         }
 

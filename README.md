@@ -71,6 +71,9 @@ ViStart/
 Settings are stored in JSON format at:
 `%APPDATA%\Lee-Soft.com\ViStart\settings.json`
 
+Current JSON settings include values like `CurrentSkin`, `CurrentOrb`, keyboard hook options,
+and visual behavior flags (see `AppSettings.cs`).
+
 ### Theme Structure
 Themes are defined in `layout.xml` files that specify element positions, colors, and images.
 
@@ -83,6 +86,14 @@ Each skin folder should contain:
 - `start_button.png` - Start button/orb (4 vertical states)
 - `layout.xml` - Element positioning
 - Additional graphics as needed
+
+Right-click the ViStart orb to open a quick menu where you can switch the active skin and orb.
+Selected values are persisted in `settings.json`.
+
+
+### Language Support
+Runtime UI language switching is supported via JSON language packs in `Languages/*.json`
+(default `english.json`; includes `czech`, `brazilian`, `chinesesimplified`, `dutch`, `finnish`, `french`, `german`, `hebrew`, `italian`, `korean`, `polish`, `romanian`, `russian`, `spanish`, `thai`, `turkish`). Language packs are maintained directly as JSON files in this repository.
 
 ## Building
 
@@ -101,7 +112,7 @@ Or open `ViStart.sln` in Visual Studio and build from the IDE.
 
 - **Minimum**: Windows 7
 - **Tested**: Windows 7, Windows 8.1, Windows 10, Windows 11
-- **Architecture**: x86 (can be built as AnyCPU)
+- **Architecture**: x86 and x64 build configurations are available
 - **.NET**: Requires .NET Framework 4.0 Client Profile
 
 ## Migration from VB6 Version

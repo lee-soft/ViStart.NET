@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using ViStart.Core;
 using ViStart.Native;
 
 namespace ViStart.UI
@@ -8,7 +9,7 @@ namespace ViStart.UI
     public class SearchBoxHost : Form
     {
         private TextBox textBox;
-        private string placeholderText = "Search programs and files...";
+        private string placeholderText = LanguageManager.T("search_placeholder", "Search programs and files...");
         private Timer changeTimer;
 
         public event EventHandler<SearchTextChangedEventArgs> SearchTextChanged;

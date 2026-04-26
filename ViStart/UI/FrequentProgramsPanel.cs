@@ -55,7 +55,7 @@ namespace ViStart.UI
                         LineAlignment = StringAlignment.Center
                     };
 
-                    g.DrawString("No pinned programs\n\nRight-click programs in All Programs to pin them here",
+                    g.DrawString(LanguageManager.T("no_pinned_programs", "No pinned programs\n\nRight-click programs in All Programs to pin them here"),
                         font, brush, Bounds, format);
                 }
                 return;
@@ -88,9 +88,9 @@ namespace ViStart.UI
             if (icon != null)
             {
                 g.DrawIcon(icon, new Rectangle(
-                    itemRect.X + 4, 
-                    itemRect.Y + (ITEM_HEIGHT - ICON_SIZE) / 2, 
-                    ICON_SIZE, 
+                    itemRect.X + 4,
+                    itemRect.Y + (ITEM_HEIGHT - ICON_SIZE) / 2,
+                    ICON_SIZE,
                     ICON_SIZE));
             }
 
@@ -119,8 +119,8 @@ namespace ViStart.UI
                 using (var brush = new SolidBrush(Color.FromArgb(100, Color.Gray)))
                 using (var font = new Font("Segoe UI", 7f))
                 {
-                    g.DrawString("📌", font, brush, 
-                        itemRect.Right - 20, 
+                    g.DrawString("📌", font, brush,
+                        itemRect.Right - 20,
                         itemRect.Y + (ITEM_HEIGHT - 16) / 2);
                 }
             }
@@ -141,7 +141,7 @@ namespace ViStart.UI
 
             int relativeY = point.Y - Bounds.Y;
             int newIndex = relativeY / ITEM_HEIGHT;
-            
+
             if (newIndex != hoveredIndex && newIndex < displayedPrograms.Count)
             {
                 hoveredIndex = newIndex;
@@ -160,7 +160,7 @@ namespace ViStart.UI
 
             int relativeY = point.Y - Bounds.Y;
             int index = relativeY / ITEM_HEIGHT;
-            
+
             if (index >= 0 && index < displayedPrograms.Count)
             {
                 return displayedPrograms[index];
@@ -172,19 +172,19 @@ namespace ViStart.UI
         public ContextMenuStrip GetContextMenu(ProgramItem program)
         {
             var menu = new ContextMenuStrip();
-            
+
             if (program.IsPinned)
             {
-                menu.Items.Add("Unpin from Start Menu", null, 
+                menu.Items.Add(LanguageManager.T("unpin_from_start", "Unpin from Start Menu"), null,
                     (s, args) => TogglePin(program));
             }
             else
             {
-                menu.Items.Add("Pin to Start Menu", null, 
+                menu.Items.Add(LanguageManager.T("pin_to_start", "Pin to Start Menu"), null,
                     (s, args) => TogglePin(program));
             }
 
-            menu.Items.Add("Remove from list", null, 
+            menu.Items.Add(LanguageManager.T("remove_from_list", "Remove from list"), null,
                 (s, args) => RemoveProgram(program));
 
             return menu;

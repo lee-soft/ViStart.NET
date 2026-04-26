@@ -16,7 +16,7 @@ namespace ViStart.Core
             if (isIndexed)
                 return;
 
-            rootNode = new ProgramNode("All Programs", "", true, 0);
+            rootNode = new ProgramNode(LanguageManager.T("all_programs", "All Programs"), "", true, 0);
             rootNode.IsExpanded = true;
 
             // Index common start menu locations
