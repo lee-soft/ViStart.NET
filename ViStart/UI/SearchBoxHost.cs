@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 using ViStart.Core;
@@ -23,17 +23,20 @@ namespace ViStart.UI
             this.ShowInTaskbar = false;
             this.BackColor = Color.White;
             this.TopMost = true;
+            // Without Manual the very first Show ignores Location and lets Windows pick a
+            // default spot, so the search box appears in the wrong place on first menu open.
+            this.StartPosition = FormStartPosition.Manual;
 
             textBox = new TextBox();
             textBox.BorderStyle = BorderStyle.None;
             textBox.Font = new Font("Segoe UI", 9f);
-            textBox.ForeColor = Color.Gray;
-            textBox.Text = placeholderText;
+            textBox.ForeColor = Color.Black;
             textBox.BackColor = Color.White;
             textBox.Dock = DockStyle.Fill;
 
-            textBox.GotFocus += TextBox_GotFocus;
-            textBox.LostFocus += TextBox_LostFocus;
+            // EM_SETCUEBANNER renders the placeholder in gray whenever the text is empty,
+            // including while focused — matches the original VB6 ViStart behaviour.
+            textBox.HandleCreated += TextBox_HandleCreated;
             textBox.TextChanged += TextBox_TextChanged;
 
             this.Controls.Add(textBox);
@@ -62,22 +65,9 @@ namespace ViStart.UI
             }
         }
 
-        private void TextBox_GotFocus(object sender, EventArgs e)
+        private void TextBox_HandleCreated(object sender, EventArgs e)
         {
-            if (textBox.Text == placeholderText)
-            {
-                textBox.Text = string.Empty;
-                textBox.ForeColor = Color.Black;
-            }
-        }
-
-        private void TextBox_LostFocus(object sender, EventArgs e)
-        {
-            if (string.IsNullOrWhiteSpace(textBox.Text))
-            {
-                textBox.Text = placeholderText;
-                textBox.ForeColor = Color.Gray;
-            }
+            User32.SendMessage(textBox.Handle, User32.EM_SETCUEBANNER, (IntPtr)1, PlaceholderText);
         }
 
         private void TextBox_TextChanged(object sender, EventArgs e)
@@ -89,21 +79,23 @@ namespace ViStart.UI
         private void ChangeTimer_Tick(object sender, EventArgs e)
         {
             changeTimer.Stop();
-
-            string searchText = textBox.ForeColor == Color.Gray ? string.Empty : textBox.Text;
-            SearchTextChanged?.Invoke(this, new SearchTextChangedEventArgs(searchText));
+            SearchTextChanged?.Invoke(this, new SearchTextChangedEventArgs(textBox.Text));
         }
 
         public void FocusTextBox()
         {
             this.Show();
+            // Activate brings this form to the foreground so SetFocus on the child
+            // textbox actually directs keystrokes here. Without it, calling Focus()
+            // on a non-active form gives the textbox a caret but no keyboard input.
+            this.Activate();
             textBox.Focus();
         }
 
         public void ClearText()
         {
-            textBox.Text = placeholderText;
-            textBox.ForeColor = Color.Gray;
+            // Cue banner takes care of the placeholder rendering; we just clear real text.
+            textBox.Text = string.Empty;
         }
     }
 }

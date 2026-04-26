@@ -45,6 +45,28 @@ namespace ViStart.Data
             return cachedIcon;
         }
 
+        // Recent files (jumplist) attribution is keyed off the resolved exe — for a
+        // .lnk that's the link target, for an .exe it's itself. Cached because the
+        // resolution touches WScript.Shell COM and we hit this on every render.
+        private string _resolvedExePath;
+        private bool _resolvedExeChecked;
+
+        public string GetResolvedExePath()
+        {
+            if (!_resolvedExeChecked)
+            {
+                _resolvedExePath = Core.ShortcutResolver.ResolveProgramExe(Path);
+                _resolvedExeChecked = true;
+            }
+            return _resolvedExePath;
+        }
+
+        public bool HasJumpList()
+        {
+            string exe = GetResolvedExePath();
+            return !string.IsNullOrEmpty(exe) && Core.RecentFilesProvider.HasRecentFiles(exe);
+        }
+
         public void Launch()
         {
             try
@@ -53,6 +75,13 @@ namespace ViStart.Data
                 {
                     // Special command
                     HandleSpecialCommand();
+                }
+                else if (Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Store apps and other virtual shell items can't be Process.Start'd
+                    // directly — explorer.exe is the canonical launcher for shell paths.
+                    System.Diagnostics.Process.Start("explorer.exe", Path);
+                    IncrementOpenCount();
                 }
                 else
                 {

@@ -25,8 +25,25 @@ namespace ViStart.UI
             InitializeComponent();
             LoadOrb();
             PositionButton();
-            
+
             startMenu = new StartMenu(this);
+            // Source of truth for the orb's visual state is the menu's actual visibility.
+            // Subscribing to VisibleChanged keeps the orb in sync regardless of who
+            // shows/hides the menu (toggle, outside-click, jumplist file launch).
+            startMenu.VisibleChanged += (s, e) => SyncToMenuVisibility();
+        }
+
+        // Picks the correct snap rect for the orb given (a) whether the menu is open
+        // and (b) whether the cursor is over the orb. Called whenever either changes.
+        private void SyncToMenuVisibility()
+        {
+            bool open = startMenu != null && startMenu.Visible;
+            isPressed = open;
+            if (open)
+                currentSnap = 2;
+            else
+                currentSnap = ClientRectangle.Contains(PointToClient(MousePosition)) ? 1 : 0;
+            DrawCurrentState();
         }
 
         private void InitializeComponent()
@@ -167,15 +184,20 @@ namespace ViStart.UI
             UpdateLayeredWindow(bitmap);
         }
 
+        // Read the menu visibility directly, not the local isPressed flag — that flag
+        // gets toggled mid-click sequence (MouseUp clears it before Click runs) and
+        // would briefly flicker the orb out of pressed state while the menu is open.
+        private bool MenuOpen { get { return startMenu != null && startMenu.Visible; } }
+
         private void StartButton_MouseEnter(object sender, EventArgs e)
         {
-            currentSnap = isPressed ? 2 : 1; // Pressed stays pressed; otherwise hover
+            currentSnap = MenuOpen ? 2 : 1;
             DrawCurrentState();
         }
 
         private void StartButton_MouseLeave(object sender, EventArgs e)
         {
-            currentSnap = isPressed ? 2 : 0; // Pressed stays pressed; otherwise normal
+            currentSnap = MenuOpen ? 2 : 0;
             DrawCurrentState();
         }
 
@@ -183,8 +205,7 @@ namespace ViStart.UI
         {
             if (e.Button == MouseButtons.Left)
             {
-                isPressed = true;
-                currentSnap = 2; // Pressed
+                currentSnap = 2;
                 DrawCurrentState();
             }
             else if (e.Button == MouseButtons.Right)
@@ -197,8 +218,8 @@ namespace ViStart.UI
         {
             if (e.Button == MouseButtons.Left)
             {
-                isPressed = false;
-                currentSnap = ClientRectangle.Contains(PointToClient(MousePosition)) ? 1 : 0;
+                currentSnap = MenuOpen ? 2 :
+                    (ClientRectangle.Contains(PointToClient(MousePosition)) ? 1 : 0);
                 DrawCurrentState();
             }
         }
@@ -210,19 +231,11 @@ namespace ViStart.UI
 
         public void ToggleStartMenu()
         {
+            // Just flip the menu — VisibleChanged repaints the orb to match.
             if (startMenu.Visible)
-            {
                 startMenu.Hide();
-                isPressed = false;
-                currentSnap = 0;
-            }
             else
-            {
                 startMenu.Show();
-                isPressed = true;
-                currentSnap = 2;
-            }
-            DrawCurrentState();
         }
 
         private void ShowExitMenu(Point screenPoint)

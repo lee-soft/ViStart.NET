@@ -23,6 +23,10 @@ namespace ViStart.UI
         public Rectangle Bounds { get; set; }
         public bool Visible { get; set; }
 
+        // Fired when a pin/unpin from this panel's context menu changes the program
+        // database. Lets the StartMenu refresh the pinned/frequent panel and repaint.
+        public event Action ProgramsChanged;
+
         private List<ProgramNode> displayedNodes;
         private int hoveredIndex = -1;
         private int scrollOffset = 0;
@@ -401,7 +405,8 @@ namespace ViStart.UI
         {
             if (!node.IsFolder)
             {
-                AppSettings.Instance.Programs.TogglePin(node.Path);
+                AppSettings.Instance.Programs.TogglePin(node.Path, node.Caption);
+                ProgramsChanged?.Invoke();
             }
         }
     }

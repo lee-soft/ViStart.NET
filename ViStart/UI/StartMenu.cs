@@ -23,12 +23,22 @@ namespace ViStart.UI
         private PowerButton arrowButton;
         private JumpListPanel jumpListPanel;
         private AllProgramsButton allProgramsButton;
+        private RecentFilesPanel recentFilesPanel;
+
+        // Jumplist "morph" mode: when true, the program list area is replaced with a
+        // recent-files list for the program the user clicked the chevron next to.
+        // Search box is hidden in this mode and the menu uses startmenu_expanded.png
+        // as background if the skin ships one.
+        private bool jumpListMode;
+        private Image expandedBackgroundImage;
 
         // Pixels above the bg image reserved for the user picture (which can sit above the menu).
         private int topOffset;
 
         // The image currently shown in the user-picture frame: either userframe.png
         // (no nav item hovered) or one of the Rollover\*.png variants for the hovered item.
+        // userFrameImage is the userframe.png with the user's account picture composited
+        // underneath at (11, 11) sized 48x48 — matches VB6 MakeUserRollover positioning.
         private Image currentUserPictureImage;
         private Image userFrameImage;
 
@@ -92,7 +102,11 @@ namespace ViStart.UI
             try
             {
                 backgroundImage = ThemeManager.GetImage("startmenu.png");
-                userFrameImage = ThemeManager.GetImage("userframe.png");
+                Image rawFrame = ThemeManager.GetImage("userframe.png");
+                // Optional skin asset; null if skin doesn't support jumplist mode (we
+                // then fall back to the regular startmenu.png so the feature still works).
+                expandedBackgroundImage = ThemeManager.GetImage("startmenu_expanded.png");
+                userFrameImage = ComposeUserFrame(rawFrame);
                 currentUserPictureImage = userFrameImage;
 
                 int bgWidth = backgroundImage?.Width ?? 510;
@@ -115,6 +129,39 @@ namespace ViStart.UI
                 this.Height = 520;
                 topOffset = 0;
                 CreateDefaultBackground();
+            }
+        }
+
+        // Build a userframe with the user's account picture composited into the centre
+        // hole of the frame, at (11, 11) sized 48x48 — same offset/size VB6 uses in
+        // MainHelper.MakeUserRollover. Returns the raw frame unchanged if no user
+        // picture is available.
+        private Image ComposeUserFrame(Image rawFrame)
+        {
+            if (rawFrame == null) return null;
+
+            Image userPic = UserPictureLoader.Load();
+            if (userPic == null) return rawFrame;
+
+            try
+            {
+                var composed = new Bitmap(rawFrame.Width, rawFrame.Height,
+                    PixelFormat.Format32bppArgb);
+                using (Graphics gg = Graphics.FromImage(composed))
+                {
+                    gg.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    gg.DrawImage(userPic, new Rectangle(11, 11, 48, 48));
+                    gg.DrawImage(rawFrame, 0, 0, rawFrame.Width, rawFrame.Height);
+                }
+                return composed;
+            }
+            catch
+            {
+                return rawFrame;
+            }
+            finally
+            {
+                userPic.Dispose();
             }
         }
 
@@ -146,11 +193,14 @@ namespace ViStart.UI
             frequentPanel = new FrequentProgramsPanel();
             frequentPanel.Bounds = new Rectangle(theme.X, theme.Y + topOffset, theme.Width, theme.Height);
             frequentPanel.Visible = !AppSettings.Instance.ShowProgramsFirst;
+            frequentPanel.ProgramsChanged += OnPinnedProgramsChanged;
+            frequentPanel.JumpListRequested += EnterJumpListMode;
 
             theme = ThemeManager.ProgramMenu;
             programPanel = new ProgramMenuPanel();
             programPanel.Bounds = new Rectangle(theme.X, theme.Y + topOffset, theme.Width, theme.Height);
             programPanel.Visible = AppSettings.Instance.ShowProgramsFirst;
+            programPanel.ProgramsChanged += OnPinnedProgramsChanged;
 
             // SearchBox is hosted in a separate Form that uses screen coordinates.
             // Its Bounds are populated in Show() once we know our final screen position.
@@ -186,6 +236,86 @@ namespace ViStart.UI
             allProgramsButton = new AllProgramsButton();
             allProgramsButton.TopOffset = topOffset;
             allProgramsButton.Bounds = new Rectangle(textTheme.X, arrowTheme.Y + topOffset, 200, arrowH);
+
+            // Recent files (jumplist) panel — sized/positioned per the skin's
+            // jumplist_viewer schema. Hidden until the user clicks a chevron.
+            theme = ThemeManager.JumpListViewer;
+            recentFilesPanel = new RecentFilesPanel();
+            recentFilesPanel.Bounds = new Rectangle(theme.X, theme.Y + topOffset, theme.Width, theme.Height);
+            recentFilesPanel.Visible = false;
+            recentFilesPanel.BackRequested += ExitJumpListMode;
+            recentFilesPanel.FileSelected += OnJumpListFileSelected;
+        }
+
+        private void EnterJumpListMode(Data.ProgramItem program)
+        {
+            recentFilesPanel.SetProgram(program);
+            recentFilesPanel.Visible = true;
+            jumpListMode = true;
+            // Pinned/frequent panel stays on the left; only the nav pane is replaced
+            // by the jumplist (handled in RenderMenu by gating its draw on !jumpListMode).
+            // Resize the layered window if the skin ships a wider startmenu_expanded.png.
+            if (expandedBackgroundImage != null)
+                ApplyBackgroundDimensions(expandedBackgroundImage);
+            RenderMenu();
+        }
+
+        private void ExitJumpListMode()
+        {
+            jumpListMode = false;
+            recentFilesPanel.Visible = false;
+            recentFilesPanel.SetProgram(null);
+            if (expandedBackgroundImage != null && backgroundImage != null)
+                ApplyBackgroundDimensions(backgroundImage);
+            RenderMenu();
+        }
+
+        // Resize the layered window to fit the given background image, keeping the
+        // menu's bottom edge anchored above the start orb. Also reposition the search
+        // box host form, since its bounds are computed off this.Top/this.Left.
+        private void ApplyBackgroundDimensions(Image bg)
+        {
+            if (bg == null) return;
+
+            int newWidth = bg.Width;
+            int newHeight = bg.Height + topOffset;
+
+            if (this.Width == newWidth && this.Height == newHeight)
+                return;
+
+            this.Width = newWidth;
+            this.Height = newHeight;
+            this.Top = Math.Max(0, parentButton.Top - newHeight);
+
+            if (searchBox != null)
+            {
+                var sbTheme = ThemeManager.SearchBox;
+                searchBox.Bounds = new Rectangle(
+                    this.Left + sbTheme.X,
+                    this.Top + sbTheme.Y + topOffset,
+                    sbTheme.Width,
+                    sbTheme.Height);
+                searchBox.UpdatePosition();
+            }
+        }
+
+        private void OnJumpListFileSelected(string filePath)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(filePath);
+            }
+            catch { }
+            ExitJumpListMode();
+            Hide();
+        }
+
+        private void OnPinnedProgramsChanged()
+        {
+            // A pin/unpin/remove from either panel's context menu changed the data.
+            // Reload the frequent panel (which renders the pinned list) and repaint.
+            frequentPanel?.LoadPrograms();
+            RenderMenu();
         }
 
         private void JumpListPanel_HoveredItemChanged(object sender, HoveredNavigationItemChangedEventArgs e)
@@ -227,6 +357,13 @@ namespace ViStart.UI
             fadeTimer.Start();
             mouseHook.Install();
 
+            // Position, show, AND focus the search box NOW — synchronously inside the
+            // click handler chain. Windows grants foreground/SetFocus privilege only to
+            // the process that just received user input, and only briefly; if we wait
+            // until the fade-timer tick (~200ms+ later) the grant has expired and
+            // SetForegroundWindow silently fails, leaving the user unable to type.
+            // Hide the host visually with Opacity=0 so it doesn't pop in before the
+            // start menu finishes fading in; ShowSearchBox restores it afterward.
             try
             {
                 var theme = ThemeManager.SearchBox;
@@ -236,7 +373,9 @@ namespace ViStart.UI
                     this.Top + theme.Y + topOffset,
                     theme.Width,
                     theme.Height);
+                searchBox.SetOpacity(0);
                 searchBox.UpdatePosition();
+                searchBox.Focus();
             }
             catch (Exception ex)
             {
@@ -244,15 +383,38 @@ namespace ViStart.UI
             }
         }
 
+        private void ShowSearchBox()
+        {
+            // Fade-in just completed: reveal the search box that's been sitting
+            // invisibly focused since Show() was called.
+            searchBox.SetOpacity(1.0);
+        }
+
         public new void Hide()
         {
             mouseHook.Uninstall();
             fadeTimer.Stop();
+            // Drop jumplist mode here so the next open starts on the normal view —
+            // outside-click dismissal goes through Hide(), bypassing ExitJumpListMode.
+            if (jumpListMode)
+            {
+                jumpListMode = false;
+                recentFilesPanel.Visible = false;
+                recentFilesPanel.SetProgram(null);
+                if (expandedBackgroundImage != null && backgroundImage != null)
+                    ApplyBackgroundDimensions(backgroundImage);
+            }
             searchBox.Visible = false;
             searchBox.UpdatePosition(); // This will hide it
-            base.Hide();
             fadeOpacity = 0;
+            // Render the (now back-to-normal-size) menu at opacity 0 before hiding,
+            // so the next Show() doesn't flash the previous frame and the bitmap matches
+            // the layered window's current dimensions.
+            RenderMenu();
+            base.Hide();
             searchBox.Clear();
+            // base.Hide() fires VisibleChanged on the form, and StartButton subscribes
+            // to that to keep the orb's visual state in sync — no manual sync needed.
         }
 
         private void RenderMenu()
@@ -262,8 +424,13 @@ namespace ViStart.UI
 
             using (Graphics g = Graphics.FromImage(bitmap))
             {
-                if (backgroundImage != null)
-                    g.DrawImage(backgroundImage, 0, topOffset);
+                // VB6's "morph" jumplist mode swaps the background to startmenu_expanded.png.
+                // Skins that don't ship that asset still get the feature with the regular bg.
+                Image bg = (jumpListMode && expandedBackgroundImage != null)
+                    ? expandedBackgroundImage
+                    : backgroundImage;
+                if (bg != null)
+                    g.DrawImage(bg, 0, topOffset);
 
                 DrawUserPicture(g);
 
@@ -275,6 +442,9 @@ namespace ViStart.UI
 
                 if (programPanel != null && programPanel.Visible)
                     programPanel.Render(g);
+
+                if (recentFilesPanel != null && recentFilesPanel.Visible)
+                    recentFilesPanel.Render(g);
 
                 if (searchBox != null)
                     searchBox.Render(g);
@@ -288,7 +458,9 @@ namespace ViStart.UI
                 if (arrowButton != null)
                     arrowButton.Render(g);
 
-                if (jumpListPanel != null)
+                // Suppress the nav pane (Documents/Pictures/…) while the jumplist is
+                // showing — it would otherwise paint through underneath the jumplist.
+                if (jumpListPanel != null && !jumpListMode)
                     jumpListPanel.Render(g);
             }
 
@@ -313,8 +485,15 @@ namespace ViStart.UI
             var theme = ThemeManager.ShutdownText;
             if (!theme.Visible) return;
 
+            // Skins ship a separate caption colour for jumplist mode (the expanded
+            // background often has a lighter strip near the power button); fall back
+            // to white in normal mode where the regular bg is dark.
+            Color color = jumpListMode
+                ? ThemeManager.ShutdownTextJumpListColor
+                : Color.White;
+
             using (var font = new Font("Segoe UI", 9f))
-            using (var brush = new SolidBrush(Color.White))
+            using (var brush = new SolidBrush(color))
             {
                 g.DrawString(LanguageManager.T("shutdown_text", "Shut down"), font, brush, theme.X, theme.Y + topOffset);
             }
@@ -329,6 +508,7 @@ namespace ViStart.UI
                 {
                     fadeOpacity = 255;
                     fadeTimer.Stop();
+                    ShowSearchBox();
                 }
             }
             else
@@ -370,6 +550,12 @@ namespace ViStart.UI
                 needsRedraw = true;
             }
 
+            if (recentFilesPanel != null && recentFilesPanel.Visible)
+            {
+                recentFilesPanel.OnMouseMove(e.Location);
+                needsRedraw = true;
+            }
+
             if (jumpListPanel != null)
             {
                 jumpListPanel.OnMouseMove(e.Location);
@@ -403,6 +589,7 @@ namespace ViStart.UI
             allProgramsButton?.OnMouseLeave();
             frequentPanel?.OnMouseLeave();
             programPanel?.OnMouseLeave();
+            recentFilesPanel?.OnMouseLeave();
             jumpListPanel?.OnMouseLeave();
             shutdownButton?.OnMouseLeave();
             arrowButton?.OnMouseLeave();
@@ -413,6 +600,16 @@ namespace ViStart.UI
         {
             if (e.Button == MouseButtons.Left)
             {
+                // Recent files panel sits on top of the nav pane area when jumplist
+                // mode is on; route clicks to it first so its back-chevron and rows win
+                // over anything else that happens to share screen space.
+                if (recentFilesPanel != null && recentFilesPanel.Visible
+                    && recentFilesPanel.HitTest(e.Location)
+                    && recentFilesPanel.OnMouseClick(e.Location, e.Button))
+                {
+                    return;
+                }
+
                 if (searchBox != null && searchBox.HitTest(e.Location))
                 {
                     searchBox.Focus();
@@ -459,7 +656,7 @@ namespace ViStart.UI
                     if (program != null)
                     {
                         program.Launch();
-                        AppSettings.Instance.Programs.UpdateProgramUsage(program.Path);
+                        AppSettings.Instance.Programs.UpdateProgramUsage(program.Path, program.Caption);
                         Hide();
                         return;
                     }
@@ -483,8 +680,11 @@ namespace ViStart.UI
                     {
                         try
                         {
-                            System.Diagnostics.Process.Start(node.Path);
-                            AppSettings.Instance.Programs.UpdateProgramUsage(node.Path);
+                            if (node.Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                                System.Diagnostics.Process.Start("explorer.exe", node.Path);
+                            else
+                                System.Diagnostics.Process.Start(node.Path);
+                            AppSettings.Instance.Programs.UpdateProgramUsage(node.Path, node.Caption);
                             Hide();
                         }
                         catch { }

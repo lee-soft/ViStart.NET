@@ -57,7 +57,7 @@ namespace ViStart.Core
             }
         }
 
-        public Data.ProgramItem GetOrCreateProgram(string path)
+        public Data.ProgramItem GetOrCreateProgram(string path, string caption = null)
         {
             // Check if already exists
             var existing = PinnedPrograms.FirstOrDefault(p => p.Path == path) ??
@@ -66,22 +66,23 @@ namespace ViStart.Core
             if (existing != null)
                 return existing;
 
-            // Create new program
-            var program = new Data.ProgramItem(path);
+            // Caption matters for shell:AppsFolder paths, where the path itself is an
+            // opaque AppUserModelID — without it pinned/frequent Store apps render as AUMIDs.
+            var program = new Data.ProgramItem(path, caption);
             FrequentPrograms.Add(program);
             return program;
         }
 
-        public void TogglePin(string path)
+        public void TogglePin(string path, string caption = null)
         {
             var program = PinnedPrograms.FirstOrDefault(p => p.Path == path);
-            
+
             if (program != null)
             {
                 // Unpin
                 PinnedPrograms.Remove(program);
                 program.IsPinned = false;
-                
+
                 if (program.OpenCount > 0)
                 {
                     FrequentPrograms.Add(program);
@@ -92,16 +93,16 @@ namespace ViStart.Core
             {
                 // Pin
                 program = FrequentPrograms.FirstOrDefault(p => p.Path == path);
-                
+
                 if (program != null)
                 {
                     FrequentPrograms.Remove(program);
                 }
                 else
                 {
-                    program = new Data.ProgramItem(path);
+                    program = new Data.ProgramItem(path, caption);
                 }
-                
+
                 program.IsPinned = true;
                 PinnedPrograms.Add(program);
             }
@@ -109,9 +110,9 @@ namespace ViStart.Core
             Save();
         }
 
-        public void UpdateProgramUsage(string path)
+        public void UpdateProgramUsage(string path, string caption = null)
         {
-            var program = GetOrCreateProgram(path);
+            var program = GetOrCreateProgram(path, caption);
             program.IncrementOpenCount();
             
             if (!program.IsPinned)

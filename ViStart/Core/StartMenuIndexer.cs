@@ -30,10 +30,42 @@ namespace ViStart.Core
             if (Directory.Exists(Path.Combine(userStartMenu, "Programs")))
                 IndexFolder(Path.Combine(userStartMenu, "Programs"), rootNode);
 
+            // Pull in Microsoft Store / packaged apps (Paint, Notepad, Calculator, ...)
+            // that live in shell:AppsFolder rather than the classic Programs filesystem.
+            IndexAppsFolder(rootNode);
+
             // Sort children alphabetically
             SortNode(rootNode);
 
             isIndexed = true;
+        }
+
+        private static void IndexAppsFolder(ProgramNode root)
+        {
+            // Build a case-insensitive set of every program already present in the tree
+            // (from the filesystem walk) so we don't duplicate apps that ship both a
+            // classic .lnk and an AppsFolder entry — common for things like Edge.
+            var existing = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            CollectCaptions(root, existing);
+
+            foreach (var entry in AppsFolderIndexer.Enumerate())
+            {
+                if (existing.Contains(entry.Name))
+                    continue;
+
+                root.AddChild(new ProgramNode(entry.Name, entry.Path, false));
+                existing.Add(entry.Name);
+            }
+        }
+
+        private static void CollectCaptions(ProgramNode node, HashSet<string> set)
+        {
+            foreach (var child in node.Children)
+            {
+                if (!child.IsFolder)
+                    set.Add(child.Caption);
+                CollectCaptions(child, set);
+            }
         }
 
         private static void IndexFolder(string folderPath, ProgramNode parentNode)
@@ -54,10 +86,16 @@ namespace ViStart.Core
                     if ((dirInfo.Attributes & FileAttributes.Hidden) == FileAttributes.Hidden)
                         continue;
 
-                    var folderNode = new ProgramNode(folderName, dir, true);
-                    parentNode.AddChild(folderNode);
-
-                    System.Diagnostics.Debug.WriteLine($"Added folder: {folderName} with {Directory.GetFiles(dir, "*.lnk").Length} shortcuts");
+                    // Merge same-named folders across the common + user Start Menu walks
+                    // (e.g. "Accessories" exists in both). Without this, the tree shows
+                    // every shared folder twice as separate siblings.
+                    var folderNode = parentNode.Children.FirstOrDefault(c => c.IsFolder
+                        && string.Equals(c.Caption, folderName, StringComparison.OrdinalIgnoreCase));
+                    if (folderNode == null)
+                    {
+                        folderNode = new ProgramNode(folderName, dir, true);
+                        parentNode.AddChild(folderNode);
+                    }
 
                     // Recursively index subfolder
                     IndexFolder(dir, folderNode);
@@ -73,6 +111,13 @@ namespace ViStart.Core
                     try
                     {
                         string caption = Path.GetFileNameWithoutExtension(file);
+
+                        // Skip if a same-named program already lives at this level (the
+                        // other Start Menu hive contributed it on a previous pass).
+                        if (parentNode.Children.Any(c => !c.IsFolder
+                            && string.Equals(c.Caption, caption, StringComparison.OrdinalIgnoreCase)))
+                            continue;
+
                         string target = ResolveShortcut(file);
 
                         if (!string.IsNullOrEmpty(target) && File.Exists(target))
@@ -107,30 +152,7 @@ namespace ViStart.Core
 
         private static string ResolveShortcut(string shortcutPath)
         {
-            try
-            {
-                Type shellType = Type.GetTypeFromProgID("WScript.Shell");
-                object shell = Activator.CreateInstance(shellType);
-
-                object shortcut = shellType.InvokeMember("CreateShortcut",
-                    System.Reflection.BindingFlags.InvokeMethod,
-                    null, shell, new object[] { shortcutPath });
-
-                object targetPath = shortcut.GetType().InvokeMember("TargetPath",
-                    System.Reflection.BindingFlags.GetProperty,
-                    null, shortcut, null);
-
-                string result = targetPath as string;
-
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(shortcut);
-                System.Runtime.InteropServices.Marshal.ReleaseComObject(shell);
-
-                return result;
-            }
-            catch
-            {
-                return null;
-            }
+            return ShortcutResolver.ResolveTarget(shortcutPath);
         }
 
         public static ProgramNode GetRootNode()
