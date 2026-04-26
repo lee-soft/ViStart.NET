@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86
+            configuration: Release
+            output_path: ViStart/bin/Release/
+          - platform: x64
+            configuration: Release
+            output_path: ViStart/bin/x64/Release/
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Verify target framework (XP-compatible)
+        shell: powershell
+        run: |
+          [xml]$project = Get-Content "ViStart/ViStart.csproj"
+          $tfm = $project.Project.PropertyGroup.TargetFrameworkVersion | Select-Object -First 1
+          if ($tfm -ne "v4.0") {
+            throw "Expected TargetFrameworkVersion v4.0, got '$tfm'."
+          }
+
+      - name: Build solution
+        run: msbuild ViStart.sln /t:Restore,Rebuild /p:Configuration=${{ matrix.configuration }} /p:Platform=${{ matrix.platform }} /m /verbosity:minimal
+
+      - name: Prepare release payload
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Path artifacts/dist/app -Force | Out-Null
+          Copy-Item "${{ matrix.output_path }}*" "artifacts/dist/app" -Recurse -Force
+          Copy-Item "ViStart/Resources" "artifacts/dist/app/Resources" -Recurse -Force
+          if (Test-Path "ViStart/Languages") {
+            Copy-Item "ViStart/Languages" "artifacts/dist/Languages" -Recurse -Force
+          }
+
+      - name: Download legacy assets from original ViStart repo
+        shell: powershell
+        run: |
+          $zip = "artifacts/legacy-vistart.zip"
+          Invoke-WebRequest -Uri "https://codeload.github.com/lee-soft/ViStart/zip/refs/heads/main" -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath artifacts -Force
+
+          $legacyRoot = "artifacts/ViStart-main"
+          $folderMap = @{
+            Languages = @("Languages", "languages")
+            Skins     = @("Skins", "skins")
+            Orbs      = @("Orbs", "orbs")
+            Rollover  = @("Rollover", "rollover")
+          }
+
+          foreach ($target in $folderMap.Keys) {
+            foreach ($candidate in $folderMap[$target]) {
+              $sourcePath = Join-Path $legacyRoot $candidate
+              if (Test-Path $sourcePath) {
+                Copy-Item $sourcePath (Join-Path "artifacts/dist" $target) -Recurse -Force
+                break
+              }
+            }
+          }
+
+
+      - name: Normalize legacy skin layout.xml files
+        shell: powershell
+        run: |
+          $skinsRoot = "artifacts/dist/Skins"
+          if (-not (Test-Path $skinsRoot)) { exit 0 }
+
+          $requiredIds = @(
+            "searchbox","programmenu","frequentprogramsmenu","allprograms_rollover",
+            "allprograms_arrow","allprograms_text","groupoptions","rolloverplaceholder",
+            "shutdown_button","logoff_button","arrow_button","jumplist_viewer","shutdown_text"
+          )
+
+          Get-ChildItem -Path $skinsRoot -Recurse -Filter layout.xml | ForEach-Object {
+            try {
+              [xml]$xml = Get-Content $_.FullName
+              if ($null -eq $xml.startmenu_base) { return }
+
+              $existingIds = @{}
+              foreach ($node in $xml.startmenu_base.vielement) {
+                if ($node.id) { $existingIds[$node.id] = $true }
+              }
+
+              foreach ($id in $requiredIds) {
+                if (-not $existingIds.ContainsKey($id)) {
+                  $newNode = $xml.CreateElement("vielement")
+                  $newNode.SetAttribute("id", $id)
+                  $newNode.SetAttribute("x", "0")
+                  $newNode.SetAttribute("y", "0")
+                  [void]$xml.startmenu_base.AppendChild($newNode)
+                }
+              }
+
+              $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+              [System.IO.File]::WriteAllText($_.FullName, $xml.OuterXml, $utf8NoBom)
+            }
+            catch {
+              Write-Host "Skipping non-parseable layout: $($_.FullName)"
+            }
+          }
+
+      - name: Build portable zip release
+        shell: powershell
+        run: |
+          $portableRoot = "artifacts/portable/ViStart-${{ matrix.platform }}"
+          New-Item -ItemType Directory -Path $portableRoot -Force | Out-Null
+          Copy-Item "artifacts/dist/app/*" $portableRoot -Recurse -Force
+
+          foreach ($folder in @("Languages", "Skins", "Orbs", "Rollover")) {
+            $src = Join-Path "artifacts/dist" $folder
+            if (Test-Path $src) {
+              Copy-Item $src (Join-Path $portableRoot $folder) -Recurse -Force
+            }
+          }
+
+          Compress-Archive -Path "$portableRoot/*" -DestinationPath "artifacts/portable/ViStart-Portable-${{ matrix.platform }}.zip" -Force
+
+      - name: Install Inno Setup 5
+        shell: powershell
+        run: choco install innosetup --version=5.6.1 --allow-downgrade --force -y --no-progress
+
+      - name: Build installer (Inno Setup 5)
+        shell: powershell
+        run: |
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 5\ISCC.exe")) {
+            throw "Inno Setup 5 was not found after installation step."
+          }
+          & "C:\Program Files (x86)\Inno Setup 5\ISCC.exe" "/DMyAppPlatform=${{ matrix.platform }}" "installer/ViStart.iss"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ViStart-Installer-${{ matrix.platform }}
+          path: artifacts/installer/ViStart-Setup-${{ matrix.platform }}.exe
+          if-no-files-found: error
+          archive: false
+
+      - name: Upload portable artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ViStart-Portable-${{ matrix.platform }}
+          path: artifacts/portable/ViStart-Portable-${{ matrix.platform }}.zip
+          if-no-files-found: error
+          archive: false
