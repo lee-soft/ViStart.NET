@@ -5,6 +5,7 @@
   "menu.default": "Default",
   "menu.exit": "Exit ViStart",
   "menu.reset_orb_position": "Reset orb position",
+  "menu.reset_menu_position": "Reset menu position",
   "tooltip.first_run_drag.title": "ViStart",
   "tooltip.first_run_drag": "Hold Ctrl and drag to move the orb anywhere on screen.",
   "all_programs": "All Programs",

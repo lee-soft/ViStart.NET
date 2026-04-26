@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Windows.Forms;
 using ViStart.Core;
 using ViStart.Native;
@@ -43,6 +44,13 @@ namespace ViStart.UI
         private Image userFrameImage;
 
         private MouseHook mouseHook;
+
+        // Ctrl+drag positioning state — mirrors the orb's drag pattern.
+        private bool menuDragArmed;
+        private bool menuDragging;
+        private Point menuDragStartScreen;
+        private Point menuDragStartLocation;
+        private const int MENU_DRAG_THRESHOLD = 4;
 
         public StartMenu(StartButton parent)
         {
@@ -285,7 +293,12 @@ namespace ViStart.UI
 
             this.Width = newWidth;
             this.Height = newHeight;
-            this.Top = Math.Max(0, parentButton.Top - newHeight);
+            // If the user dragged the menu, keep their offset; otherwise
+            // re-anchor the bottom of the menu to the orb (default Win7 layout).
+            if (AppSettings.Instance.MenuPositionSet)
+                this.Top = parentButton.Top + AppSettings.Instance.MenuOffsetY;
+            else
+                this.Top = Math.Max(0, parentButton.Top - newHeight);
 
             if (searchBox != null)
             {
@@ -337,6 +350,26 @@ namespace ViStart.UI
 
         private void PositionMenu()
         {
+            // If the user has Ctrl+dragged the menu before, honour their offset.
+            // Offset is stored relative to the orb so the menu travels with it.
+            // Clamp the final position so at least a strip stays on a visible
+            // monitor — saves people who drop it off-screen.
+            if (AppSettings.Instance.MenuPositionSet)
+            {
+                int x = parentButton.Left + AppSettings.Instance.MenuOffsetX;
+                int y = parentButton.Top + AppSettings.Instance.MenuOffsetY;
+                Rectangle desired = new Rectangle(x, y, this.Width, this.Height);
+                Screen target = Screen.AllScreens.FirstOrDefault(s => s.Bounds.IntersectsWith(desired))
+                                ?? Screen.PrimaryScreen;
+                Rectangle wa = target.WorkingArea;
+                // Keep at least 32px of the menu inside the working area on every edge
+                this.Left = Math.Max(wa.Left - this.Width + 32, Math.Min(x, wa.Right - 32));
+                this.Top  = Math.Max(wa.Top - this.Height + 32, Math.Min(y, wa.Bottom - 32));
+                return;
+            }
+
+            // Default (Win7-style): menu pops up directly above the orb,
+            // clamped to screen top.
             this.Left = parentButton.Left;
             this.Top = parentButton.Top - this.Height;
 
@@ -348,6 +381,12 @@ namespace ViStart.UI
         {
             if (Visible)
                 return;
+
+            // Recompute position against the orb's CURRENT location every time
+            // the menu is summoned. Without this, the menu stays at its
+            // constructor-time coords and won't follow when the user
+            // Ctrl+drags the orb to a new spot mid-session.
+            PositionMenu();
 
             base.Show();
 
@@ -527,6 +566,37 @@ namespace ViStart.UI
 
         private void StartMenu_MouseMove(object sender, MouseEventArgs e)
         {
+            // Ctrl+drag in progress: relocate the menu (and search box) and
+            // skip all the panel hover-routing below.
+            if (menuDragArmed)
+            {
+                Point now = MousePosition;
+                int dx = now.X - menuDragStartScreen.X;
+                int dy = now.Y - menuDragStartScreen.Y;
+                if (!menuDragging)
+                {
+                    if (Math.Abs(dx) < MENU_DRAG_THRESHOLD && Math.Abs(dy) < MENU_DRAG_THRESHOLD)
+                        return;
+                    menuDragging = true;
+                }
+                this.Location = new Point(
+                    menuDragStartLocation.X + dx,
+                    menuDragStartLocation.Y + dy);
+
+                // Keep the search-box host form anchored to the menu's new top-left.
+                if (searchBox != null && searchBox.Visible)
+                {
+                    var sbTheme = ThemeManager.SearchBox;
+                    searchBox.Bounds = new Rectangle(
+                        this.Left + sbTheme.X,
+                        this.Top + sbTheme.Y + topOffset,
+                        sbTheme.Width,
+                        sbTheme.Height);
+                    searchBox.UpdatePosition();
+                }
+                return;
+            }
+
             bool needsRedraw = false;
 
             if (allProgramsButton != null)
@@ -598,6 +668,20 @@ namespace ViStart.UI
 
         private void StartMenu_MouseDown(object sender, MouseEventArgs e)
         {
+            // Ctrl+left-click anywhere on the menu surface arms a drag. Actual
+            // move begins once movement clears MENU_DRAG_THRESHOLD pixels — small
+            // wiggles still fall through to the normal click routing below.
+            if (e.Button == MouseButtons.Left
+                && (Control.ModifierKeys & Keys.Control) == Keys.Control)
+            {
+                menuDragArmed = true;
+                menuDragging = false;
+                menuDragStartScreen = MousePosition;
+                menuDragStartLocation = this.Location;
+                this.Capture = true;
+                return;
+            }
+
             if (e.Button == MouseButtons.Left)
             {
                 // Recent files panel sits on top of the nav pane area when jumplist
@@ -726,6 +810,25 @@ namespace ViStart.UI
 
         private void StartMenu_MouseUp(object sender, MouseEventArgs e)
         {
+            // End of a Ctrl+drag — persist the new offset (relative to the orb)
+            // and skip the panel-routing below so the menu doesn't think the
+            // user clicked a button.
+            if (menuDragArmed && e.Button == MouseButtons.Left)
+            {
+                bool didDrag = menuDragging;
+                menuDragArmed = false;
+                menuDragging = false;
+                this.Capture = false;
+                if (didDrag)
+                {
+                    AppSettings.Instance.MenuOffsetX = this.Left - parentButton.Left;
+                    AppSettings.Instance.MenuOffsetY = this.Top - parentButton.Top;
+                    AppSettings.Instance.MenuPositionSet = true;
+                    AppSettings.Save();
+                }
+                return;
+            }
+
             if (e.Button == MouseButtons.Left)
             {
                 if (programPanel != null && programPanel.Visible)

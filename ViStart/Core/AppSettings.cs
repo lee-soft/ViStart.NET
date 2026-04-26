@@ -54,6 +54,14 @@ namespace ViStart.Core
         public int OrbY { get; set; }
         public bool OrbPositionSet { get; set; }
 
+        // Start menu position — stored as an offset relative to the orb so the
+        // menu travels with the orb. Set when the user Ctrl+drags the menu.
+        // While MenuPositionSet is false, the menu pops up directly above the
+        // orb (clamped to screen top) — original Win7 behaviour.
+        public int MenuOffsetX { get; set; }
+        public int MenuOffsetY { get; set; }
+        public bool MenuPositionSet { get; set; }
+
         // Program Database (stored separately)
         public ProgramDatabase Programs { get; set; }
 
@@ -73,6 +81,9 @@ namespace ViStart.Core
             OrbX = 0;
             OrbY = 0;
             OrbPositionSet = false;
+            MenuOffsetX = 0;
+            MenuOffsetY = 0;
+            MenuPositionSet = false;
             Programs = new ProgramDatabase();
         }
 

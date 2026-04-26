@@ -420,6 +420,13 @@ namespace ViStart.UI
                 AppSettings.Save();
                 PositionButton();
             });
+            menu.Items.Add(LanguageManager.T("menu.reset_menu_position", "Reset menu position"), null, (s, a) =>
+            {
+                AppSettings.Instance.MenuPositionSet = false;
+                AppSettings.Save();
+                // Next time the menu opens it'll fall back to the default
+                // (above-the-orb) placement via PositionMenu().
+            });
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(LanguageManager.T("menu.exit", "Exit ViStart"), null, (s, a) => Program.Exit());
             menu.Show(screenPoint);
