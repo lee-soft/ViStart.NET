@@ -69,7 +69,7 @@ namespace ViStart.UI
                         LineAlignment = StringAlignment.Center
                     };
 
-                    g.DrawString("No pinned programs\n\nRight-click programs in All Programs to pin them here",
+                    g.DrawString(LanguageManager.T("no_pinned_programs", "No pinned programs\n\nRight-click programs in All Programs to pin them here"),
                         font, brush, Bounds, format);
                 }
                 return;
@@ -240,16 +240,16 @@ namespace ViStart.UI
 
             if (program.IsPinned)
             {
-                menu.Items.Add("Unpin from Start Menu", null,
+                menu.Items.Add(LanguageManager.T("unpin_from_start", "Unpin from Start Menu"), null,
                     (s, args) => TogglePin(program));
             }
             else
             {
-                menu.Items.Add("Pin to Start Menu", null,
+                menu.Items.Add(LanguageManager.T("pin_to_start", "Pin to Start Menu"), null,
                     (s, args) => TogglePin(program));
             }
 
-            menu.Items.Add("Remove from list", null,
+            menu.Items.Add(LanguageManager.T("remove_from_list", "Remove from list"), null,
                 (s, args) => RemoveProgram(program));
 
             return menu;

@@ -58,7 +58,8 @@ namespace ViStart
                 // Initialize settings
                 AppSettings.Load();
 
-                // Initialize theme
+                // Initialize language and theme
+                LanguageManager.Initialize();
                 ThemeManager.Initialize();
 
                 // Install keyboard hook to catch Windows key

@@ -1,6 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using ViStart.Core;
 using ViStart.Native;
@@ -238,8 +241,123 @@ namespace ViStart.UI
         private void ShowExitMenu(Point screenPoint)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("Exit ViStart", null, (s, a) => Program.Exit());
+
+            var skinsMenu = new ToolStripMenuItem(LanguageManager.T("menu.skins", "Skins"));
+            skinsMenu.DropDownItems.Add(LanguageManager.T("menu.default", "Default"), null, (s, a) =>
+            {
+                AppSettings.Instance.CurrentSkin = string.Empty;
+                ApplyAppearanceChanges();
+            });
+
+            foreach (string skinName in GetAvailableSkins())
+            {
+                skinsMenu.DropDownItems.Add(skinName, null, (s, a) =>
+                {
+                    AppSettings.Instance.CurrentSkin = skinName;
+                    ApplyAppearanceChanges();
+                });
+            }
+
+            var orbsMenu = new ToolStripMenuItem(LanguageManager.T("menu.orbs", "Orbs"));
+            orbsMenu.DropDownItems.Add(LanguageManager.T("menu.default", "Default"), null, (s, a) =>
+            {
+                AppSettings.Instance.CurrentOrb = string.Empty;
+                ApplyAppearanceChanges();
+            });
+
+            foreach (string orbFile in GetAvailableOrbs())
+            {
+                orbsMenu.DropDownItems.Add(orbFile, null, (s, a) =>
+                {
+                    AppSettings.Instance.CurrentOrb = orbFile;
+                    ApplyAppearanceChanges();
+                });
+            }
+
+            menu.Items.Add(skinsMenu);
+            menu.Items.Add(orbsMenu);
+            var languageMenu = new ToolStripMenuItem(LanguageManager.T("menu.languages", "Language"));
+            foreach (string lang in LanguageManager.GetAvailableLanguages())
+            {
+                languageMenu.DropDownItems.Add(lang, null, (s, a) =>
+                {
+                    AppSettings.Instance.CurrentLanguage = lang;
+                    ApplyLanguageChanges();
+                });
+            }
+
+            menu.Items.Add(languageMenu);
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add(LanguageManager.T("menu.exit", "Exit ViStart"), null, (s, a) => Program.Exit());
             menu.Show(screenPoint);
+        }
+
+        private IEnumerable<string> GetAvailableSkins()
+        {
+            var skins = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string appDataSkins = Path.Combine(AppSettings.AppDataPath, "_skins");
+            string localSkins = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Skins");
+            string localSkinsLower = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
+
+            foreach (string path in new[] { appDataSkins, localSkins, localSkinsLower })
+            {
+                if (!Directory.Exists(path))
+                    continue;
+
+                foreach (string dir in Directory.GetDirectories(path))
+                {
+                    skins.Add(Path.GetFileName(dir));
+                }
+            }
+
+            return skins.OrderBy(s => s);
+        }
+
+        private IEnumerable<string> GetAvailableOrbs()
+        {
+            var orbs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string appDataOrbs = Path.Combine(AppSettings.AppDataPath, "_orbs");
+            string localOrbs = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Orbs");
+            string localOrbsLower = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "orbs");
+
+            foreach (string path in new[] { appDataOrbs, localOrbs, localOrbsLower })
+            {
+                if (!Directory.Exists(path))
+                    continue;
+
+                foreach (string file in Directory.GetFiles(path, "*.png", SearchOption.TopDirectoryOnly))
+                {
+                    orbs.Add(Path.GetFileName(file));
+                }
+            }
+
+            return orbs.OrderBy(o => o);
+        }
+
+        private void ApplyLanguageChanges()
+        {
+            AppSettings.Save();
+            LanguageManager.Initialize();
+            ApplyAppearanceChanges();
+        }
+
+        private void ApplyAppearanceChanges()
+        {
+            AppSettings.Save();
+            ThemeManager.Reload();
+            LoadOrb();
+
+            if (startMenu != null)
+            {
+                bool wasVisible = startMenu.Visible;
+                startMenu.Hide();
+                startMenu.Dispose();
+                startMenu = new StartMenu(this);
+                if (wasVisible)
+                {
+                    startMenu.Show();
+                }
+            }
         }
 
         protected override void WndProc(ref Message m)

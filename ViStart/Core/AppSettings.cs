@@ -37,6 +37,7 @@ namespace ViStart.Core
         // General Settings
         public string CurrentSkin { get; set; }
         public string CurrentOrb { get; set; }
+        public string CurrentLanguage { get; set; }
         public bool ShowUserPicture { get; set; }
         public bool ShowProgramsFirst { get; set; }
         public bool CatchLeftWindowsKey { get; set; }
@@ -52,8 +53,9 @@ namespace ViStart.Core
         private AppSettings()
         {
             // Set defaults
-            CurrentSkin = string.Empty;
-            CurrentOrb = string.Empty;
+            CurrentSkin = "Windows 7 Start Menu";
+            CurrentOrb = "Orb Windows 7.png";
+            CurrentLanguage = "english";
             ShowUserPicture = true;
             ShowProgramsFirst = false;
             CatchLeftWindowsKey = true;
@@ -110,9 +112,17 @@ namespace ViStart.Core
         {
             if (!string.IsNullOrEmpty(CurrentSkin))
             {
-                string skinPath = Path.Combine(appDataPath, "_skins", CurrentSkin);
-                if (Directory.Exists(skinPath))
-                    return skinPath;
+                string appDataSkinPath = Path.Combine(appDataPath, "_skins", CurrentSkin);
+                if (Directory.Exists(appDataSkinPath))
+                    return appDataSkinPath;
+
+                string localSkinsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Skins", CurrentSkin);
+                if (Directory.Exists(localSkinsPath))
+                    return localSkinsPath;
+
+                string localSkinsLowerPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins", CurrentSkin);
+                if (Directory.Exists(localSkinsLowerPath))
+                    return localSkinsLowerPath;
             }
 
             // Default resources in application directory
@@ -123,9 +133,17 @@ namespace ViStart.Core
         {
             if (!string.IsNullOrEmpty(CurrentOrb))
             {
-                string orbPath = Path.Combine(appDataPath, "_orbs", CurrentOrb);
-                if (File.Exists(orbPath))
-                    return orbPath;
+                string appDataOrbPath = Path.Combine(appDataPath, "_orbs", CurrentOrb);
+                if (File.Exists(appDataOrbPath))
+                    return appDataOrbPath;
+
+                string localOrbsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Orbs", CurrentOrb);
+                if (File.Exists(localOrbsPath))
+                    return localOrbsPath;
+
+                string localOrbsLowerPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "orbs", CurrentOrb);
+                if (File.Exists(localOrbsLowerPath))
+                    return localOrbsLowerPath;
             }
 
             // Default orb

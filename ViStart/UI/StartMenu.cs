@@ -495,7 +495,7 @@ namespace ViStart.UI
             using (var font = new Font("Segoe UI", 9f))
             using (var brush = new SolidBrush(color))
             {
-                g.DrawString("Shut down", font, brush, theme.X, theme.Y + topOffset);
+                g.DrawString(LanguageManager.T("shutdown_text", "Shut down"), font, brush, theme.X, theme.Y + topOffset);
             }
         }
 
@@ -803,7 +803,7 @@ namespace ViStart.UI
 
         private void ShutdownButton_Click()
         {
-            if (MessageBox.Show("Are you sure you want to shut down?", "Shut Down Windows",
+            if (MessageBox.Show(LanguageManager.T("confirm_shutdown", "Are you sure you want to shut down?"), LanguageManager.T("shutdown_title", "Shut Down Windows"),
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 NativeMethods.EnableShutdownPrivilege();
@@ -815,9 +815,9 @@ namespace ViStart.UI
         private void ArrowButton_Click(Point location)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("Log Off", null, (s, args) => LogOff());
-            menu.Items.Add("Restart", null, (s, args) => Restart());
-            menu.Items.Add("Shut Down", null, (s, args) => ShutdownButton_Click());
+            menu.Items.Add(LanguageManager.T("log_off", "Log Off"), null, (s, args) => LogOff());
+            menu.Items.Add(LanguageManager.T("restart", "Restart"), null, (s, args) => Restart());
+            menu.Items.Add(LanguageManager.T("shut_down", "Shut Down"), null, (s, args) => ShutdownButton_Click());
             menu.Show(this.PointToScreen(location));
         }
 
@@ -828,7 +828,7 @@ namespace ViStart.UI
 
         private void Restart()
         {
-            if (MessageBox.Show("Are you sure you want to restart?", "Restart Windows",
+            if (MessageBox.Show(LanguageManager.T("confirm_restart", "Are you sure you want to restart?"), LanguageManager.T("restart_title", "Restart Windows"),
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 NativeMethods.EnableShutdownPrivilege();
