@@ -16,6 +16,10 @@ namespace ViStart.UI
         public Rectangle Bounds { get; set; }
         public bool Visible { get; set; }
 
+        // Fired when this panel's context menu mutates the program database, so the
+        // StartMenu can repaint the layered window (this panel can't repaint itself).
+        public event Action ProgramsChanged;
+
         private List<ProgramItem> displayedPrograms;
         private int hoveredIndex = -1;
 
@@ -194,12 +198,14 @@ namespace ViStart.UI
         {
             AppSettings.Instance.Programs.TogglePin(program.Path);
             LoadPrograms();
+            ProgramsChanged?.Invoke();
         }
 
         private void RemoveProgram(ProgramItem program)
         {
             AppSettings.Instance.Programs.RemoveProgram(program.Path);
             LoadPrograms();
+            ProgramsChanged?.Invoke();
         }
     }
 }

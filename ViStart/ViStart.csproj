@@ -50,6 +50,7 @@
     <Compile Include="Data\ProgramNode.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Core\AppSettings.cs" />
+    <Compile Include="Core\AppsFolderIndexer.cs" />
     <Compile Include="Core\ThemeManager.cs" />
     <Compile Include="Core\IconCache.cs" />
     <Compile Include="Core\StartMenuIndexer.cs" />

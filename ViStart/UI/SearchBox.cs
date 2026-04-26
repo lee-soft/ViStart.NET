@@ -71,6 +71,11 @@ namespace ViStart.UI
             hostForm.FocusTextBox();
         }
 
+        public void SetOpacity(double opacity)
+        {
+            hostForm.Opacity = opacity;
+        }
+
         public void Clear()
         {
             hostForm.ClearText();

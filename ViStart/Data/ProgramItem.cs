@@ -54,6 +54,13 @@ namespace ViStart.Data
                     // Special command
                     HandleSpecialCommand();
                 }
+                else if (Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Store apps and other virtual shell items can't be Process.Start'd
+                    // directly — explorer.exe is the canonical launcher for shell paths.
+                    System.Diagnostics.Process.Start("explorer.exe", Path);
+                    IncrementOpenCount();
+                }
                 else
                 {
                     System.Diagnostics.Process.Start(Path);

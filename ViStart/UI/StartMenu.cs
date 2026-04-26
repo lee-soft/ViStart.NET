@@ -146,11 +146,13 @@ namespace ViStart.UI
             frequentPanel = new FrequentProgramsPanel();
             frequentPanel.Bounds = new Rectangle(theme.X, theme.Y + topOffset, theme.Width, theme.Height);
             frequentPanel.Visible = !AppSettings.Instance.ShowProgramsFirst;
+            frequentPanel.ProgramsChanged += OnPinnedProgramsChanged;
 
             theme = ThemeManager.ProgramMenu;
             programPanel = new ProgramMenuPanel();
             programPanel.Bounds = new Rectangle(theme.X, theme.Y + topOffset, theme.Width, theme.Height);
             programPanel.Visible = AppSettings.Instance.ShowProgramsFirst;
+            programPanel.ProgramsChanged += OnPinnedProgramsChanged;
 
             // SearchBox is hosted in a separate Form that uses screen coordinates.
             // Its Bounds are populated in Show() once we know our final screen position.
@@ -186,6 +188,14 @@ namespace ViStart.UI
             allProgramsButton = new AllProgramsButton();
             allProgramsButton.TopOffset = topOffset;
             allProgramsButton.Bounds = new Rectangle(textTheme.X, arrowTheme.Y + topOffset, 200, arrowH);
+        }
+
+        private void OnPinnedProgramsChanged()
+        {
+            // A pin/unpin/remove from either panel's context menu changed the data.
+            // Reload the frequent panel (which renders the pinned list) and repaint.
+            frequentPanel?.LoadPrograms();
+            RenderMenu();
         }
 
         private void JumpListPanel_HoveredItemChanged(object sender, HoveredNavigationItemChangedEventArgs e)
@@ -227,6 +237,13 @@ namespace ViStart.UI
             fadeTimer.Start();
             mouseHook.Install();
 
+            // Position, show, AND focus the search box NOW — synchronously inside the
+            // click handler chain. Windows grants foreground/SetFocus privilege only to
+            // the process that just received user input, and only briefly; if we wait
+            // until the fade-timer tick (~200ms+ later) the grant has expired and
+            // SetForegroundWindow silently fails, leaving the user unable to type.
+            // Hide the host visually with Opacity=0 so it doesn't pop in before the
+            // start menu finishes fading in; ShowSearchBox restores it afterward.
             try
             {
                 var theme = ThemeManager.SearchBox;
@@ -236,12 +253,21 @@ namespace ViStart.UI
                     this.Top + theme.Y + topOffset,
                     theme.Width,
                     theme.Height);
+                searchBox.SetOpacity(0);
                 searchBox.UpdatePosition();
+                searchBox.Focus();
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("SearchBox error: " + ex.Message);
             }
+        }
+
+        private void ShowSearchBox()
+        {
+            // Fade-in just completed: reveal the search box that's been sitting
+            // invisibly focused since Show() was called.
+            searchBox.SetOpacity(1.0);
         }
 
         public new void Hide()
@@ -329,6 +355,7 @@ namespace ViStart.UI
                 {
                     fadeOpacity = 255;
                     fadeTimer.Stop();
+                    ShowSearchBox();
                 }
             }
             else
@@ -459,7 +486,7 @@ namespace ViStart.UI
                     if (program != null)
                     {
                         program.Launch();
-                        AppSettings.Instance.Programs.UpdateProgramUsage(program.Path);
+                        AppSettings.Instance.Programs.UpdateProgramUsage(program.Path, program.Caption);
                         Hide();
                         return;
                     }
@@ -483,8 +510,11 @@ namespace ViStart.UI
                     {
                         try
                         {
-                            System.Diagnostics.Process.Start(node.Path);
-                            AppSettings.Instance.Programs.UpdateProgramUsage(node.Path);
+                            if (node.Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                                System.Diagnostics.Process.Start("explorer.exe", node.Path);
+                            else
+                                System.Diagnostics.Process.Start(node.Path);
+                            AppSettings.Instance.Programs.UpdateProgramUsage(node.Path, node.Caption);
                             Hide();
                         }
                         catch { }

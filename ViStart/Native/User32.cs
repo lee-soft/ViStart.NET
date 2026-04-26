@@ -20,6 +20,10 @@ namespace ViStart.Native
         [DllImport("user32.dll")]
         public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
+        // Unicode overload for messages that pass a string in lParam (e.g. EM_SETCUEBANNER).
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "SendMessageW")]
+        public static extern IntPtr SendMessage(IntPtr hWnd, uint Msg, IntPtr wParam, string lParam);
+
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
@@ -90,6 +94,10 @@ namespace ViStart.Native
         public const int SW_SHOWNOACTIVATE = 4;
 
         public const uint ULW_ALPHA = 0x02;
+
+        // EM_SETCUEBANNER: shows gray placeholder text in an Edit/TextBox while it is empty.
+        // wParam=1 means the cue stays visible even when the control has focus (Vista+ behaviour).
+        public const uint EM_SETCUEBANNER = 0x1501;
 
         public static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
         public static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
