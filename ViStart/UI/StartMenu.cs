@@ -276,8 +276,14 @@ namespace ViStart.UI
             fadeTimer.Stop();
             searchBox.Visible = false;
             searchBox.UpdatePosition(); // This will hide it
-            base.Hide();
             fadeOpacity = 0;
+            // Pre-render the layered window at opacity 0 *before* hiding it. Windows
+            // remembers the last UpdateLayeredWindow contents/opacity for when the form
+            // is next shown — without this, the next Show() flashes the menu at the
+            // previous full opacity for a frame before RenderMenu() resets it to 0.
+            if (bitmap != null)
+                UpdateLayeredWindow(bitmap, 0);
+            base.Hide();
             searchBox.Clear();
         }
 
