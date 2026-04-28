@@ -85,11 +85,39 @@ namespace ViStart.UI
         public void FocusTextBox()
         {
             this.Show();
-            // Activate brings this form to the foreground so SetFocus on the child
-            // textbox actually directs keystrokes here. Without it, calling Focus()
-            // on a non-active form gives the textbox a caret but no keyboard input.
-            this.Activate();
-            textBox.Focus();
+
+            // SetForegroundWindow / Activate need foreground privilege, which Windows
+            // only grants to a process that just received user input. When the start
+            // menu is summoned via the WH_KEYBOARD_LL hook (Win key), the keypress
+            // is intercepted globally and never delivered to our input queue, so we
+            // have no privilege and Activate silently fails — the textbox shows a
+            // caret but keystrokes go to whatever app was previously focused.
+            //
+            // Workaround: briefly attach our input queue to the foreground thread's
+            // input queue. While attached, the OS treats both threads as one input
+            // context, so SetForegroundWindow on our window succeeds.
+            IntPtr foreground = User32.GetForegroundWindow();
+            uint foregroundThread = (foreground != IntPtr.Zero)
+                ? User32.GetWindowThreadProcessId(foreground, IntPtr.Zero)
+                : 0;
+            uint thisThread = User32.GetCurrentThreadId();
+
+            bool attached = false;
+            if (foregroundThread != 0 && foregroundThread != thisThread)
+            {
+                attached = User32.AttachThreadInput(thisThread, foregroundThread, true);
+            }
+            try
+            {
+                User32.SetForegroundWindow(this.Handle);
+                this.Activate();
+                textBox.Focus();
+            }
+            finally
+            {
+                if (attached)
+                    User32.AttachThreadInput(thisThread, foregroundThread, false);
+            }
         }
 
         public void ClearText()

@@ -72,6 +72,17 @@ namespace ViStart.Native
         [DllImport("user32.dll")]
         public static extern short GetAsyncKeyState(int vKey);
 
+        [DllImport("user32.dll", SetLastError = true)]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr lpdwProcessId);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo,
+            [MarshalAs(UnmanagedType.Bool)] bool fAttach);
+
+        [DllImport("kernel32.dll")]
+        public static extern uint GetCurrentThreadId();
+
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool DestroyIcon(IntPtr hIcon);

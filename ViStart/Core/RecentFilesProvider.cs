@@ -49,6 +49,120 @@ namespace ViStart.Core
             return GetRecentFiles(exePath).Count > 0;
         }
 
+        /// <summary>
+        /// Returns the system-wide list of recently opened files. Combines three
+        /// sources to stay reliable across Windows versions and across the Win11
+        /// shift toward Activity-History-driven Recent (which leaves the classic
+        /// .lnk folder sparsely populated for modern apps):
+        ///
+        ///   * CSIDL_RECENT (.lnk shortcuts) — primary on XP/Vista/7/8.
+        ///   * AutomaticDestinations jumplist blobs — primary on Win11 because
+        ///     Explorer + most modern Win32 apps update these even when they no
+        ///     longer write .lnks. Same scrape used by the per-program jumplists.
+        ///   * RecentDocs registry — XP fallback when neither folder exists.
+        ///
+        /// Each candidate carries a timestamp (.lnk mtime or blob mtime) used to
+        /// merge-sort the combined list most-recent first. Caller passes a soft cap.
+        /// </summary>
+        public static IList<string> GetSystemRecentFiles(int max = 30)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var candidates = new List<KeyValuePair<DateTime, string>>();
+
+            // Source A — CSIDL_RECENT. Resolving through SpecialFolder.Recent follows
+            // the OS's canonical mapping (it's a junction on modern Windows), so this
+            // works whether the real folder is in %USERPROFILE% or %APPDATA%.
+            string recentFolder = Environment.GetFolderPath(Environment.SpecialFolder.Recent);
+            if (!string.IsNullOrEmpty(recentFolder) && Directory.Exists(recentFolder))
+            {
+                FileInfo[] lnks;
+                try
+                {
+                    // Resolve a healthy multiple of `max` so we still hit the cap when
+                    // the most-recent .lnks point at deleted/virtual targets.
+                    lnks = new DirectoryInfo(recentFolder)
+                        .GetFiles("*.lnk")
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .Take(Math.Max(max * 3, 60))
+                        .ToArray();
+                }
+                catch { lnks = new FileInfo[0]; }
+
+                foreach (var lnk in lnks)
+                {
+                    string target = ShortcutResolver.ResolveTarget(lnk.FullName);
+                    if (string.IsNullOrEmpty(target)) continue;
+                    // Files only — Recent also stores folder shortcuts which aren't
+                    // useful in this list. File.Exists also rejects stale .lnks.
+                    if (!File.Exists(target)) continue;
+                    if (!seen.Add(target)) continue;
+
+                    candidates.Add(new KeyValuePair<DateTime, string>(
+                        lnk.LastWriteTimeUtc, target));
+                }
+            }
+
+            // Source B — AutomaticDestinations. On Win11 these are the most reliable
+            // signal: Explorer rewrites a blob whenever its app's jumplist updates.
+            // ExtractPathsFromBlob already verifies File.Exists per candidate.
+            string adFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "Microsoft\\Windows\\Recent\\AutomaticDestinations");
+            if (Directory.Exists(adFolder))
+            {
+                FileInfo[] blobs;
+                try
+                {
+                    blobs = new DirectoryInfo(adFolder)
+                        .GetFiles("*.automaticDestinations-ms")
+                        .OrderByDescending(f => f.LastWriteTimeUtc)
+                        .ToArray();
+                }
+                catch { blobs = new FileInfo[0]; }
+
+                foreach (var blob in blobs)
+                {
+                    // Stop scanning blobs once we have plenty of candidates — extracting
+                    // paths from each blob touches disk and the top-K sort below
+                    // narrows down anyway.
+                    if (candidates.Count >= max * 3) break;
+
+                    List<string> paths;
+                    try { paths = ExtractPathsFromBlob(blob.FullName); }
+                    catch { continue; }
+
+                    foreach (var p in paths)
+                    {
+                        if (!seen.Add(p)) continue;
+                        candidates.Add(new KeyValuePair<DateTime, string>(
+                            blob.LastWriteTimeUtc, p));
+                    }
+                }
+            }
+
+            // Source C — XP fallback. Only useful when the modern paths above turn up
+            // nothing (true XP install, no AutomaticDestinations folder).
+            if (candidates.Count == 0)
+            {
+                string profileRecent = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Recent");
+                foreach (var path in CollectFromRecentDocsRegistry())
+                {
+                    if (!seen.Add(path)) continue;
+                    DateTime ts;
+                    try { ts = File.GetLastWriteTimeUtc(path); }
+                    catch { ts = DateTime.MinValue; }
+                    candidates.Add(new KeyValuePair<DateTime, string>(ts, path));
+                }
+            }
+
+            return candidates
+                .OrderByDescending(kv => kv.Key)
+                .Take(max)
+                .Select(kv => kv.Value)
+                .ToList();
+        }
+
         public static void Refresh()
         {
             lock (_initLock)

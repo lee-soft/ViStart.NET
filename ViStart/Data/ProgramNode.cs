@@ -35,7 +35,7 @@ namespace ViStart.Data
         {
             if (IsFolder)
             {
-                return Core.IconCache.GetFolderIcon(largeIcon);
+                return Core.IconCache.GetFolderIcon(largeIcon, IsExpanded);
             }
             else
             {

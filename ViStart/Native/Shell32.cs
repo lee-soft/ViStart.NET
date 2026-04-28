@@ -120,6 +120,7 @@ namespace ViStart.Native
         public const uint SHGFI_ICON = 0x100;
         public const uint SHGFI_LARGEICON = 0x0;
         public const uint SHGFI_SMALLICON = 0x1;
+        public const uint SHGFI_OPENICON = 0x2;
         public const uint SHGFI_USEFILEATTRIBUTES = 0x10;
         public const uint SHGFI_PIDL = 0x000000008;
 

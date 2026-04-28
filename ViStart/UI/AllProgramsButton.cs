@@ -16,6 +16,7 @@ namespace ViStart.UI
 
         private bool isHovered = false;
         private Image arrowImage;
+        private Image rolloverImage;
         private int frameHeight;
 
         public AllProgramsButton()
@@ -23,6 +24,9 @@ namespace ViStart.UI
             Visible = true;
             ShowingAllPrograms = false;
             arrowImage = ThemeManager.GetImage("programs_arrow.png");
+            // VB6 ships allprograms.png as the rollover background drawn at the
+            // allprograms_rollover position. Skins without it fall back to no rollover.
+            rolloverImage = ThemeManager.GetImage("allprograms.png");
 
             if (arrowImage != null)
             {
@@ -37,11 +41,20 @@ namespace ViStart.UI
 
             if (isHovered)
             {
-                using (var brush = new SolidBrush(Color.FromArgb(30, Color.LightBlue)))
+                var rolloverTheme = ThemeManager.AllProgramsRollover;
+                if (rolloverImage != null)
                 {
-                    var rolloverTheme = ThemeManager.AllProgramsRollover;
-                    g.FillRectangle(brush, rolloverTheme.X, rolloverTheme.Y + TopOffset,
-                        Bounds.Width, Bounds.Height);
+                    g.DrawImage(rolloverImage,
+                        rolloverTheme.X, rolloverTheme.Y + TopOffset,
+                        rolloverImage.Width, rolloverImage.Height);
+                }
+                else
+                {
+                    using (var brush = new SolidBrush(Color.FromArgb(30, Color.LightBlue)))
+                    {
+                        g.FillRectangle(brush, rolloverTheme.X, rolloverTheme.Y + TopOffset,
+                            Bounds.Width, Bounds.Height);
+                    }
                 }
             }
 

@@ -15,6 +15,8 @@ namespace ViStart.Core
 
         private static Icon largeFolderIcon;
         private static Icon smallFolderIcon;
+        private static Icon largeOpenFolderIcon;
+        private static Icon smallOpenFolderIcon;
 
         public static Icon GetIcon(string path, bool largeIcon = true)
         {
@@ -275,9 +277,16 @@ namespace ViStart.Core
 
         private static Icon ShellIconForPath(string path, bool largeIcon)
         {
+            return ShellIconForPath(path, largeIcon, false);
+        }
+
+        private static Icon ShellIconForPath(string path, bool largeIcon, bool openIcon)
+        {
             var info = new Native.Shell32.SHFILEINFO();
             uint flags = Native.Shell32.SHGFI_ICON
                        | (largeIcon ? Native.Shell32.SHGFI_LARGEICON : Native.Shell32.SHGFI_SMALLICON);
+            if (openIcon)
+                flags |= Native.Shell32.SHGFI_OPENICON;
 
             Native.Shell32.SHGetFileInfo(path, 0, ref info, (uint)Marshal.SizeOf(info), flags);
 
@@ -320,21 +329,42 @@ namespace ViStart.Core
 
         public static Icon GetFolderIcon(bool largeIcon = true)
         {
-            if (largeIcon && largeFolderIcon != null)
-                return largeFolderIcon;
-            if (!largeIcon && smallFolderIcon != null)
-                return smallFolderIcon;
+            return GetFolderIcon(largeIcon, false);
+        }
+
+        public static Icon GetFolderIcon(bool largeIcon, bool openIcon)
+        {
+            if (openIcon)
+            {
+                if (largeIcon && largeOpenFolderIcon != null) return largeOpenFolderIcon;
+                if (!largeIcon && smallOpenFolderIcon != null) return smallOpenFolderIcon;
+            }
+            else
+            {
+                if (largeIcon && largeFolderIcon != null) return largeFolderIcon;
+                if (!largeIcon && smallFolderIcon != null) return smallFolderIcon;
+            }
 
             // Match VB6: query the actual %windir% folder so we get whatever
             // shell icon Windows uses for a real directory (incl. theme overlays).
-            Icon icon = ShellIconForPath(Environment.GetFolderPath(Environment.SpecialFolder.Windows), largeIcon);
+            // SHGFI_OPENICON flips it to the open-folder variant for expanded nodes.
+            Icon icon = ShellIconForPath(
+                Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                largeIcon,
+                openIcon);
 
             if (icon != null)
             {
-                if (largeIcon)
-                    largeFolderIcon = icon;
+                if (openIcon)
+                {
+                    if (largeIcon) largeOpenFolderIcon = icon;
+                    else smallOpenFolderIcon = icon;
+                }
                 else
-                    smallFolderIcon = icon;
+                {
+                    if (largeIcon) largeFolderIcon = icon;
+                    else smallFolderIcon = icon;
+                }
             }
 
             return icon;

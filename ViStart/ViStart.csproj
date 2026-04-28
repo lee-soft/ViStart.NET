@@ -101,6 +101,9 @@
     <Compile Include="UI\ProgramMenuPanel.cs" />
     <Compile Include="UI\FrequentProgramsPanel.cs" />
     <Compile Include="UI\RecentFilesPanel.cs" />
+    <Compile Include="UI\RecentFilesPopup.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\SearchBox.cs" />
     <Compile Include="UI\PowerButton.cs" />
     <Compile Include="UI\JumpListPanel.cs" />

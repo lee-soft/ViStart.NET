@@ -82,6 +82,16 @@ namespace ViStart.UI
                 parentButton.Width, parentButton.Height);
             if (orbRect.Contains(clickPoint)) return;
 
+            // While the Recent popup is open, clicks inside it are routed to the popup
+            // and must not also dismiss the start menu underneath.
+            if (recentFilesPopup != null && !recentFilesPopup.IsDisposed)
+            {
+                var popupRect = new Rectangle(
+                    recentFilesPopup.Left, recentFilesPopup.Top,
+                    recentFilesPopup.Width, recentFilesPopup.Height);
+                if (popupRect.Contains(clickPoint)) return;
+            }
+
             Hide();
         }
 
@@ -268,6 +278,51 @@ namespace ViStart.UI
             RenderMenu();
         }
 
+        // VB6 "Recent" submenu: clicking the chevron next to the Recent nav item
+        // pops up a separate floating window listing the system-wide recent files.
+        // Mirrors VB6 frmFileMenu — the menu stays open behind the popup.
+        private RecentFilesPopup recentFilesPopup;
+
+        private void ShowRecentFilesPopup(Data.NavigationItem item)
+        {
+            if (recentFilesPopup != null)
+            {
+                recentFilesPopup.Close();
+                recentFilesPopup = null;
+            }
+
+            var files = Core.RecentFilesProvider.GetSystemRecentFiles();
+            var popup = new RecentFilesPopup(item.Caption, files);
+
+            // Sit the popup just to the right of the start menu (next to the nav pane),
+            // matching VB6 frmFileMenu placement. Flip to the left side if there's no
+            // room — happens when the menu sits flush against the right edge of the screen.
+            int x = this.Right - 4;
+            int y = this.Top + 40;
+            var screen = Screen.FromPoint(new Point(x, y)).WorkingArea;
+            if (x + popup.Width > screen.Right)
+                x = this.Left - popup.Width + 4;
+            if (y + popup.Height > screen.Bottom)
+                y = screen.Bottom - popup.Height;
+            if (y < screen.Top)
+                y = screen.Top;
+            popup.Location = new Point(x, y);
+
+            popup.FileSelected += (path) =>
+            {
+                try { System.Diagnostics.Process.Start(path); } catch { }
+                recentFilesPopup = null;
+                Hide();
+            };
+            popup.FormClosed += (s, e) =>
+            {
+                if (recentFilesPopup == popup) recentFilesPopup = null;
+            };
+
+            recentFilesPopup = popup;
+            popup.Show();
+        }
+
         private void ExitJumpListMode()
         {
             jumpListMode = false;
@@ -388,6 +443,12 @@ namespace ViStart.UI
             // Ctrl+drags the orb to a new spot mid-session.
             PositionMenu();
 
+            // Reload the frequent/pinned list so apps launched in a previous
+            // session of the menu show up here on the next open. Without this,
+            // displayedPrograms is frozen at construction time and UpdateProgramUsage
+            // calls never reach the UI.
+            frequentPanel?.LoadPrograms();
+
             base.Show();
 
             isFadingIn = true;
@@ -433,6 +494,13 @@ namespace ViStart.UI
         {
             mouseHook.Uninstall();
             fadeTimer.Stop();
+            // Close the Recent popup if it's still up — its lifetime is tied to the
+            // start menu, so dismissing the menu must dismiss the popup too.
+            if (recentFilesPopup != null && !recentFilesPopup.IsDisposed)
+            {
+                recentFilesPopup.Close();
+                recentFilesPopup = null;
+            }
             // Drop jumplist mode here so the next open starts on the normal view —
             // outside-click dismissal goes through Hide(), bypassing ExitJumpListMode.
             if (jumpListMode)
@@ -509,6 +577,15 @@ namespace ViStart.UI
         private void DrawUserPicture(Graphics g)
         {
             if (currentUserPictureImage == null)
+                return;
+
+            // Hide the user picture in any expanded view — jumplist (Recent files) mode
+            // OR the All Programs panel. VB6 hides it whenever the menu morphs out of
+            // its default layout because the picture sits above the menu and looks
+            // disconnected when the rest of the chrome changes.
+            if (jumpListMode)
+                return;
+            if (allProgramsButton != null && allProgramsButton.ShowingAllPrograms)
                 return;
 
             var theme = ThemeManager.RolloverPlaceholder;
@@ -843,6 +920,14 @@ namespace ViStart.UI
                     if (navItem != null)
                     {
                         RenderMenu(); // clear the pressed frame before launch/hide
+                        // Submenu items (Recent in the default layout) open a floating
+                        // popup window with the system recent-files list — mirrors VB6
+                        // frmFileMenu, which stays separate from the start menu surface.
+                        if (navItem.HasSubmenu)
+                        {
+                            ShowRecentFilesPopup(navItem);
+                            return;
+                        }
                         navItem.Execute();
                         Hide();
                         return;

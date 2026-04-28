@@ -170,7 +170,7 @@ namespace ViStart.UI
 
             var oldSmoothing = g.SmoothingMode;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using (var brush = new SolidBrush(Color.FromArgb(80, 80, 80)))
+            using (var brush = new SolidBrush(Color.White))
                 g.FillPolygon(brush, pts);
             g.SmoothingMode = oldSmoothing;
         }
