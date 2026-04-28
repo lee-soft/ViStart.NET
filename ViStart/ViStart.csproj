@@ -74,6 +74,7 @@
     <Compile Include="Core\ExtensionHandlerCache.cs" />
     <Compile Include="Core\RecentFilesProvider.cs" />
     <Compile Include="Core\ShortcutResolver.cs" />
+    <Compile Include="Core\UserChoiceIndex.cs" />
     <Compile Include="Core\ThemeManager.cs" />
     <Compile Include="Core\UserPictureLoader.cs" />
     <Compile Include="Core\IconCache.cs" />

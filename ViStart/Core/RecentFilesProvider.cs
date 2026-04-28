@@ -31,22 +31,105 @@ namespace ViStart.Core
     public static class RecentFilesProvider
     {
         private static Dictionary<string, List<string>> _filesByExe;
+        private static Dictionary<string, List<string>> _filesByExtension;
         private static readonly object _initLock = new object();
 
-        public static IList<string> GetRecentFiles(string exePath)
+        public static IList<string> GetRecentFiles(string programPath)
         {
             EnsureInitialized();
-            if (string.IsNullOrEmpty(exePath))
+            if (string.IsNullOrEmpty(programPath))
                 return EmptyList;
 
-            string key = NormalizeExePath(exePath);
+            // Direct exe match first — populated by handler-exe attribution during
+            // index build. Works for classic apps where the registered shell\open\command
+            // resolves cleanly to the same exe the user pinned.
+            string key = NormalizeExePath(programPath);
             List<string> list;
-            return _filesByExe.TryGetValue(key, out list) ? (IList<string>)list : EmptyList;
+            if (_filesByExe.TryGetValue(key, out list) && list.Count > 0)
+                return list;
+
+            // Identity-based fallback: ask UserChoiceIndex which extensions the
+            // pinned app handles (according to the user's own registry — UserChoice
+            // defaults plus OpenWithList history), then aggregate across blobs by
+            // those extensions. Replaces every "this exe handles those types"
+            // hardcoded list with whatever the OS actually thinks.
+            //
+            // A pinned program can be referenced multiple ways, so try several
+            // identity forms and union the results — Notepad-as-AppX is matched
+            // by AUMID, VS Code-as-Win32 is matched by exe basename, etc.
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var aggregated = new List<string>();
+            foreach (var identity in EnumerateIdentities(programPath))
+            {
+                var exts = UserChoiceIndex.GetExtensionsFor(identity);
+                if (exts.Count == 0) continue;
+                foreach (var p in AggregateByExtensions(exts))
+                    if (seen.Add(p)) aggregated.Add(p);
+            }
+            return aggregated;
+        }
+
+        // Yields every form a pinned program might be registered under. Order
+        // doesn't matter (results are unioned), but uniqueness does — duplicates
+        // would just waste lookups.
+        private static IEnumerable<string> EnumerateIdentities(string programPath)
+        {
+            // shell:AppsFolder\<PFN>!<AppID> — strip prefix, what remains is the
+            // AUMID stored in HKCR\AppX*\Application\AppUserModelID.
+            const string appsPrefix = "shell:AppsFolder\\";
+            if (programPath.StartsWith(appsPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return programPath.Substring(appsPrefix.Length);
+                yield break;
+            }
+
+            // Win32 / .lnk: try the path itself, the resolved target (if a .lnk),
+            // and the basename of each. UserChoiceIndex stores Win32 handlers as
+            // exe paths from \shell\open\command — those usually match either the
+            // full path or just the basename depending on how the ProgID is set up.
+            yield return programPath;
+
+            string baseName = Path.GetFileName(programPath);
+            if (!string.IsNullOrEmpty(baseName) && !baseName.Equals(programPath,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                yield return baseName;
+            }
+
+            if (programPath.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase))
+            {
+                string target = ShortcutResolver.ResolveTarget(programPath);
+                if (!string.IsNullOrEmpty(target))
+                {
+                    yield return target;
+                    string targetBase = Path.GetFileName(target);
+                    if (!string.IsNullOrEmpty(targetBase)
+                        && !targetBase.Equals(target, StringComparison.OrdinalIgnoreCase))
+                        yield return targetBase;
+                }
+            }
         }
 
         public static bool HasRecentFiles(string exePath)
         {
             return GetRecentFiles(exePath).Count > 0;
+        }
+
+        private static IList<string> AggregateByExtensions(IEnumerable<string> extensions)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var result = new List<string>();
+            foreach (var ext in extensions)
+            {
+                string normalized = (ext.Length > 0 && ext[0] == '.') ? ext : "." + ext;
+                List<string> list;
+                if (_filesByExtension.TryGetValue(normalized, out list))
+                {
+                    foreach (var p in list)
+                        if (seen.Add(p)) result.Add(p);
+                }
+            }
+            return result;
         }
 
         /// <summary>
@@ -168,6 +251,7 @@ namespace ViStart.Core
             lock (_initLock)
             {
                 _filesByExe = null;
+                _filesByExtension = null;
             }
         }
 
@@ -181,28 +265,48 @@ namespace ViStart.Core
             lock (_initLock)
             {
                 if (_filesByExe != null) return;
-                _filesByExe = BuildIndex();
+                BuildIndex();
             }
         }
 
-        private static Dictionary<string, List<string>> BuildIndex()
+        private static void BuildIndex()
         {
-            var result = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var byExe = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var byExt = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var seenPerExe = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            var seenPerExt = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var path in CollectRecentPaths())
             {
-                string handlerExe = ExtensionHandlerCache.GetHandlerExe(Path.GetExtension(path));
+                string ext = Path.GetExtension(path);
+
+                // Extension-keyed bucket — used by the Win11 shim fallback above.
+                // Populated for every path regardless of whether we can attribute
+                // it to a specific exe.
+                if (!string.IsNullOrEmpty(ext))
+                {
+                    List<string> extList;
+                    if (!byExt.TryGetValue(ext, out extList))
+                    {
+                        extList = new List<string>();
+                        byExt[ext] = extList;
+                        seenPerExt[ext] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    }
+                    if (seenPerExt[ext].Add(path))
+                        extList.Add(path);
+                }
+
+                string handlerExe = ExtensionHandlerCache.GetHandlerExe(ext);
                 if (string.IsNullOrEmpty(handlerExe))
                     continue;
 
                 string key = NormalizeExePath(handlerExe);
 
                 List<string> list;
-                if (!result.TryGetValue(key, out list))
+                if (!byExe.TryGetValue(key, out list))
                 {
                     list = new List<string>();
-                    result[key] = list;
+                    byExe[key] = list;
                     seenPerExe[key] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 }
 
@@ -210,7 +314,10 @@ namespace ViStart.Core
                     list.Add(path);
             }
 
-            return result;
+            // Assign last so a partially-built state is never visible to readers
+            // that race past the lock.
+            _filesByExtension = byExt;
+            _filesByExe = byExe;
         }
 
         private static IEnumerable<string> CollectRecentPaths()

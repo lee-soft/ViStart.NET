@@ -63,8 +63,23 @@ namespace ViStart.Data
 
         public bool HasJumpList()
         {
-            string exe = GetResolvedExePath();
-            return !string.IsNullOrEmpty(exe) && Core.RecentFilesProvider.HasRecentFiles(exe);
+            string key = GetJumpListKey();
+            return !string.IsNullOrEmpty(key) && Core.RecentFilesProvider.HasRecentFiles(key);
+        }
+
+        // Identifier passed to RecentFilesProvider. For Win32 exes / .lnk shortcuts
+        // it's the resolved target exe (so handler-exe attribution can match). For
+        // AppX pins (shell:AppsFolder\X!App) we can't resolve a Win32 exe, but the
+        // provider's fallback can match the package family name out of the path,
+        // so pass it through unchanged.
+        public string GetJumpListKey()
+        {
+            string resolved = GetResolvedExePath();
+            if (!string.IsNullOrEmpty(resolved)) return resolved;
+            if (!string.IsNullOrEmpty(Path)
+                && Path.StartsWith("shell:", StringComparison.OrdinalIgnoreCase))
+                return Path;
+            return null;
         }
 
         public void Launch()

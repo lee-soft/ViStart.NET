@@ -49,11 +49,11 @@ namespace ViStart.UI
             if (newProgram == null)
                 return;
 
-            string exe = newProgram.GetResolvedExePath();
-            if (string.IsNullOrEmpty(exe))
+            string key = newProgram.GetJumpListKey();
+            if (string.IsNullOrEmpty(key))
                 return;
 
-            files.AddRange(RecentFilesProvider.GetRecentFiles(exe));
+            files.AddRange(RecentFilesProvider.GetRecentFiles(key));
         }
 
         public void Render(Graphics g)
